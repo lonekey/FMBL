@@ -1,0 +1,149 @@
+{	
+	"name": "buglocate",
+	"displayName": "buglocate",
+	"description": "A tool to find bugs!",
+	"version": "0.0.1",
+	"engines": {
+		"vscode": "^1.58.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"*"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"configuration": {
+			"type": "object",
+			"title": "buglocate",
+			"properties": {
+				"buglocate.project.name": {
+					"type": "string",
+					"default": "AspectJ",
+					"description": "product name in bugRepo."
+				},
+				"buglocate.project.bugRepo": {
+					"type": "string",
+					"default": "https://bugs.eclipse.org/bugs",
+					"description": "a website for you bug repository"
+				},
+				"buglocate.project.gitRepo": {
+					"type": "string",
+					"default": "E:\\SBL\\Repository\\org.aspectj",
+					"description": "path to local git repository whitch contains folder .git"
+				},
+				"buglocate.dataset.maxDatasetSize": {
+					"type": "number",
+					"default": 100,
+					"description": "Max history bug per batch."
+				},
+				"buglocate.dataset.maxQueryLength": {
+					"type": "number",
+					"default": 100,
+					"description": "Max query length."
+				},
+				"buglocate.dataset.maxCodeK": {
+					"type": "number",
+					"default": 20,
+					"description": "Max token number per line."
+				},
+				"buglocate.dataset.maxFileLine": {
+					"type": "number",
+					"default": 400,
+					"description": "Max code line per file."
+				},
+				"buglocate.dataset.maxFuncLine": {
+					"type": "number",
+					"default": 30,
+					"description": "Max code line per function."
+				},
+				"buglocate.score.useCodeLength": {
+					"type": "boolean",
+					"default": true,
+					"description": "Add code length or method length to predict."
+				},
+				"buglocate.score.useTFIDF": {
+					"type": "boolean",
+					"default": true,
+					"description": "Add TFIDF to predict"
+				},
+				"buglocate.score.useLearning": {
+					"type": "boolean",
+					"default": false,
+					"description": "Add DeepLearning to predict, high accuracy but need gpu and more resources."
+				},
+				"buglocate.level.file": {
+					"type": "boolean",
+					"default": true,
+					"description": "Provide the file level result."
+				},
+				"buglocate.level.function": {
+					"type": "boolean",
+					"default": true,
+					"description": "Provide the function level result."
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "buglocate.search",
+				"title": "查找缺陷位置"
+			},
+			{
+				"command": "buglocate.init",
+				"title": "buglocate.init"
+			},
+			{
+				"command": "buglocate.goToFile",
+				"title": "转到文件"
+			}
+		],
+		"menus": {
+            "editor/context": [
+                {
+                    "when": "editorHasSelection",
+                    "command": "buglocate.search",
+                    "group": "navigation"
+                }
+            ],
+			"view/item/context": [
+				{
+					"command": "buglocate.goToFile",
+					"when": "view == bugLocateResult",
+					"group": "inline"
+				}
+			]
+        },
+		"views": {
+			"debug": [
+			  {
+				"id": "bugLocateResult",
+				"name": "buglocate result"
+			  }
+			]
+		  }
+
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.58.0",
+		"@types/glob": "^7.1.3",
+		"@types/mocha": "^8.2.2",
+		"@types/node": "14.x",
+		"eslint": "^7.27.0",
+		"@typescript-eslint/eslint-plugin": "^4.26.0",
+		"@typescript-eslint/parser": "^4.26.0",
+		"glob": "^7.1.7",
+		"mocha": "^8.4.0",
+		"typescript": "^4.3.2",
+		"vscode-test": "^1.5.2"
+	}
+}

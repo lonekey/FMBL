@@ -1,0 +1,7 @@
+node_modules
+.vscode-test/
+*.vsix
+src/cache
+src/backend/cache
+src/backend/__pycache__
+src/backend/utils/__pycache__
