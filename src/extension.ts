@@ -3,8 +3,6 @@
 import * as vscode from 'vscode';
 import * as cmd from 'child_process';
 import * as fs from 'fs';
-import { resolve } from 'path';
-import { isUndefined } from 'util';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -14,15 +12,15 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('buglocate.init', () => {
 		vscode.window.showInformationMessage('[buglocate] Start prepare for buglocate...');
-		cmd.exec('conda activate SBL && python main.py --doCollect --bugRepo '+config.bugRepo+' --product '+config.product+' --gitRepo '+config.gitRepo, {cwd:'E:\\buglocate\\src\\backend'}, (error, stdout, stderr) => {
+		cmd.exec('.\\main.exe --doCollect --bugRepo '+config.bugRepo+' --product '+config.product+' --gitRepo '+config.gitRepo, {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
 			console.log(stdout, stderr);
 			// console.log(stderr);
 			// vscode.window.showInformationMessage('[buglocate] Collect finished.');
-			cmd.exec('conda activate SBL && python main.py --doMatch --bugRepo '+config.bugRepo+' --product '+config.product+' --gitRepo '+config.gitRepo, {cwd:'E:\\buglocate\\src\\backend'}, (error, stdout, stderr) => {
+			cmd.exec('.\\main.exe --doMatch --bugRepo '+config.bugRepo+' --product '+config.product+' --gitRepo '+config.gitRepo, {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
 				console.log(stdout, stderr);
 				// console.log(stderr);
 				// vscode.window.showInformationMessage('[buglocate] Match finished.');
-				cmd.exec('conda activate SBL && python main.py --doMakeDataset --product '+config.product+' --gitRepo '+config.gitRepo+' --maxDatasetSize '+config.maxDatasetSize, {cwd:'E:\\buglocate\\src\\backend'}, (error, stdout, stderr) => {
+				cmd.exec('.\\main.exe --doMakeDataset --product '+config.product+' --gitRepo '+config.gitRepo+' --maxDatasetSize '+config.maxDatasetSize, {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
 					console.log(stdout, stderr);
 					vscode.window.showInformationMessage('[buglocate] All done.');
 				});
@@ -32,12 +30,12 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.commands.executeCommand('buglocate.init');
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand('buglocate.search', (textEditor) => {
 		const query = getSelectedText(textEditor);
-		fs.writeFile('E:/buglocate/src/backend/queryfile.txt', query , (error) => {
+		fs.writeFile('E:/buglocate/src/backend/dist/queryfile.txt', query , (error) => {
 			if (error !== null){				
 				console.log(error);
 			}
 		});
-		cmd.exec('conda activate SBL && python main.py --doPredict --product "AspectJ" --query "queryfile.txt"', {cwd:'E:\\buglocate\\src\\backend'}, (error, stdout, stderr) => {
+		cmd.exec('.\\main.exe --doPredict --product "AspectJ" --query "queryfile.txt"', {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
 			if (stderr !== null){				
 				console.log(stderr);
 			}

@@ -2,8 +2,6 @@
 # @Author : Cheng Zhu
 # @site : https://gitee.com/lonekey
 # @File : data_model.py
-from re import S
-import threading
 from typing import Dict
 from utils.java_parse import get_method, java_to_json
 import uuid

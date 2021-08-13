@@ -2,8 +2,6 @@
 # @Author : Cheng Zhu
 # @site : https://gitee.com/lonekey
 # @File : tf_idf.py
-from config import *
-from data_model import *
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 from gensim import similarities

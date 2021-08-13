@@ -27,11 +27,11 @@ def add_change(code_path, project: Project, prior_commit: Commit, this_commit: C
     file_add_list = diff(code_path, prior_commit.commit_id, this_commit.commit_id, "A")
     file_modified_list = diff(code_path, prior_commit.commit_id, this_commit.commit_id, "M")
     file_del_list = diff(code_path, prior_commit.commit_id, this_commit.commit_id, "D")
-    print('A', len(file_add_list), end='\t\t')
-    print('M', len(file_modified_list), end='\t\t')
-    print('D', len(file_del_list))
+    # print('A', len(file_add_list), end='\t\t')
+    # print('M', len(file_modified_list), end='\t\t')
+    # print('D', len(file_del_list))
     this_commit.current_files = copy.copy(prior_commit.current_files)
-    print(len(this_commit.current_files))
+    # print(len(this_commit.current_files))
 
     for delete_file in file_del_list:
         for b_file_id in this_commit.current_files.copy():
@@ -62,7 +62,7 @@ def add_change(code_path, project: Project, prior_commit: Commit, this_commit: C
                 break
 
 
-    print(len(this_commit.current_files))
+    # print(len(this_commit.current_files))
     return this_commit
 
 

@@ -3,6 +3,7 @@
 	"displayName": "buglocate",
 	"description": "A tool to find bugs!",
 	"version": "0.0.1",
+	"publisher": "YZU-zhucheng",
 	"engines": {
 		"vscode": "^1.58.0"
 	},

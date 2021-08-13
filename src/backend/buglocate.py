@@ -1,6 +1,5 @@
 
 import pickle
-import re
 from data_model import Project
 from utils.file import getFileList
 from utils.preprocess import clean_code, clean_str

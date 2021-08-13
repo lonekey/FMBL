@@ -1,7 +1,10 @@
 node_modules
 .vscode-test/
 *.vsix
-src/cache
+src/backend/build
+src/backend/dist
 src/backend/cache
 src/backend/__pycache__
 src/backend/utils/__pycache__
+.idea
+main.spec
