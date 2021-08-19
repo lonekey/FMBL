@@ -5,6 +5,7 @@
 from typing import Dict
 from utils.java_parse import get_method, java_to_json
 import uuid
+import random
 
 
 def split_description(filename):
@@ -32,7 +33,6 @@ def split_description(filename):
             else:
                 code.append(line)
     return description, code
-
 
 
 class Commit:
@@ -88,7 +88,6 @@ class File:
         # print(f"create a file! {file_id} {filename}")
 
     def __repr__(self):
-        # return f"{self.id, self.filename, len(self.method_list), self.create_commit, self.change_history, self.delete_commit}"
         return f"{self.filename}"
 
 
@@ -113,7 +112,7 @@ class Project:
         self.project_name = project_name
         self.commits: Dict[str, Commit] = {}
         self.bugs: Dict[str, Bug] = {}
-        self.files: Dict[uuid.UUID, File]= {}
+        self.files: Dict[uuid.UUID, File] = {}
         self.methods: Dict[uuid.UUID, Method] = {}
 
     def __repr__(self):
@@ -124,13 +123,13 @@ class Project:
 
     def getChangedFilesByBugID(self, bugId):
         bug = self.bugs[bugId]
-        A = [('A',self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].A]
-        D = [('D', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].D]
-        M = [('M', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].M]
+        A = [('A', self.files[file]) for i in bug.fixed_version for file in self.commits[i].A]
+        D = [('D', self.files[file]) for i in bug.fixed_version for file in self.commits[i].D]
+        M = [('M', self.files[file]) for i in bug.fixed_version for file in self.commits[i].M]
         A.extend(D)
         A.extend(M)
         return A
-    
+
     def getChangedMethodsByBugID(self, bugId):
         bug = self.bugs[bugId]
         methods = [self.methods[method] for i in bug.fixed_version for method in self.commits[i].methods]
@@ -144,17 +143,51 @@ class Project:
         fileIds = self.commits[commitId].current_files
         return fileIds
 
+    def getMethodIdsByCommitId(self, commitId):
+        methods = []
+        for fileId in self.getFileIdsByCommitId(commitId):
+            methods.extend(self.files[fileId].method_list)
+        return methods
+
     def getFileContentById(self, fileId):
         file = self.files[fileId]
         file.method_list = [self.methods[i] for i in file.method_list]
-        return file
+        content = ""
+        for method in file.method_list:
+            content += method.comment if method.comment is not None else ""
+            content += method.content
+        return content
 
     def getLatestCommit(self):
         return list(self.commits.keys())[-1]
 
+    def getBuggyReportFilePairs(self):
+        """
+
+        :return: bid, cid, report, code, label
+        """
+        for bugID, bug in self.bugs.items():
+            files = self.getChangedFilesByBugID(bugID)
+            for status, file in files:
+                yield bugID, file.id, bug.bug_summary+'\n'+bug.bug_description, file.filename+'\n'+self.getFileContentById(file.id), 1
+
+    def getBuggyReportMethodPairs(self):
+        """
+
+        :return: bid, cid, report, code, label
+        """
+        for bugID, bug in self.bugs.items():
+            allMethods = self.getMethodIdsByCommitId(bug.bug_exist_version)
+            buggyMethods = self.getChangedMethodsByBugID(bugID)
+            report = bug.bug_summary+'\n'+bug.bug_description
+            for m in buggyMethods:
+                yield bugID, m.id, report, m.content, 1
+                randomSelectedMethods = random.sample(allMethods, 1)
+                for m1 in randomSelectedMethods:
+                    yield bugID, m1, report, self.methods[m1].content, 0
+
 
 if __name__ == "__main__":
-
     print(uuid.uuid1())
 
     # description, code = split_description("BrowserManager.java")

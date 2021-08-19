@@ -2,7 +2,7 @@
 import argparse
 import json
 import os
-
+# 断点调试
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='buglocate')
     parser.add_argument('--doCollect', action='store_true', default=False)
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument('--file', action='store_true', default=False)
     parser.add_argument('--method', action='store_true', default=False)
 
-    parser.add_argument('--bugRepo', help='a website for you bug repository')
+    parser.add_argument('--bugRepo', help='a website for your bug repository')
     parser.add_argument('--gitRepo', help='path to local git repository whitch contains folder .git')
     parser.add_argument('--product', help='product name in bugRepo')
     parser.add_argument('--maxDatasetSize', help='max history bug reports number for bug localization')

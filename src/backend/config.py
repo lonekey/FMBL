@@ -4,13 +4,14 @@
 # @File : config.py
 
 # model
-filters = [3, 4, 5]
-filter_num = 100
-dropout = 0.5
+pretrained_path = "microsoft/codebert-base"
+output_dir = "cache"
 
 # train
 start_epoch = 0
-lr = 0.01
+learning_rate = 1e-5
+train_batch_size = 1
+num_train_epochs = 2
 
 # dataset
 max_r_len = 100
@@ -21,3 +22,4 @@ negative_file_num = 20
 negative_method_num = 100
 
 seed = 233
+

@@ -1,4 +1,3 @@
-
 import pickle
 from data_model import Project
 from utils.file import getFileList
@@ -7,17 +6,21 @@ import time
 import bl_TFIDF
 import bl_Length
 import numpy as np
+
 """
 git log -1 -> commit
 
 """
+
+
 def getNewestCommit(product):
     p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
     newestCommit = list(p.commits.keys())[-1]
     filenames = p.getFilenamesByCommitId(newestCommit)
     return filenames
 
-def checkfile(product, raw_project_path):
+
+def checkFile(product, raw_project_path):
     raw_path_len = len(raw_project_path.split('\\'))
     file_list = getFileList(raw_project_path)
     file_list = ['/'.join(i.split('/')[raw_path_len:]) for i in file_list]
@@ -26,6 +29,7 @@ def checkfile(product, raw_project_path):
         if f not in repo_file_list:
             print(f)
     print(len(file_list), len(repo_file_list))
+
 
 def mergeScore(*scores):
     score = np.ones(len(scores[0]))
@@ -36,12 +40,13 @@ def mergeScore(*scores):
 
 def rank(score, filenames, answer=None):
     result = zip(score, filenames)
-    result = sorted(result, key= lambda x: x[0], reverse=True)
+    result = sorted(result, key=lambda x: x[0], reverse=True)
     if answer is not None:
         for index, i in enumerate(result):
             if i[1] in answer:
                 print(index, i)
     return result[:100]
+
 
 def predict(product, query):
     p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
@@ -61,7 +66,7 @@ def predict(product, query):
     for i in files:
         filenames.append(i.filename[code_path_len:])
         code = ""
-        code+= i.filename+'\n'
+        code += i.filename + '\n'
         for j in i.method_list:
             code += str(j.content)
             code += str(j.comment)
@@ -74,8 +79,9 @@ def predict(product, query):
     result = rank(score, filenames)
     return result
 
+
 if __name__ == "__main__":
     start = time.time()
     predict('AspectJ', '123')
     end = time.time()
-    print(end-start)
+    print(end - start)
