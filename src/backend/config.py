@@ -10,8 +10,8 @@ output_dir = "cache"
 # train
 start_epoch = 0
 learning_rate = 1e-5
-train_batch_size = 1
-num_train_epochs = 2
+train_batch_size = 4
+num_train_epochs = 20
 
 # dataset
 max_r_len = 100

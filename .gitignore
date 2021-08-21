@@ -4,6 +4,7 @@ node_modules
 src/backend/build
 src/backend/dist
 src/backend/cache
+src/backend/bert_pretrain
 src/backend/__pycache__
 src/backend/utils/__pycache__
 .idea

@@ -18,7 +18,7 @@ import numpy as np
 def main():
     cpu_count = 1
     pool = multiprocessing.Pool(cpu_count)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     tokenizer = RobertaTokenizer.from_pretrained(config.pretrained_path)
     model = RCModel(config.pretrained_path)
     # 定义总参数量、可训练参数量及非可训练参数量变量
@@ -54,7 +54,7 @@ def train(model, tokenizer, device, pool):
     model.train()
     tr_num, tr_loss, best_mrr = 0, 0, 0
     predicts, labels = [], []
-
+    print("train start...")
     for idx in range(config.num_train_epochs):
         for step, batch in enumerate(dataIter):
             # get inputs
@@ -62,8 +62,9 @@ def train(model, tokenizer, device, pool):
             labels.extend(label)
             sentence = torch.tensor(tokens_ids).to(device)
             label = torch.tensor(label).to(device)
+#             print(sentence, label)
             output = model(sentence)
-            # print(output)
+#             print(output)
             # print(label)
 
             # calculate scores and loss
@@ -130,6 +131,7 @@ class myDataset:
         file_path = file_path.replace('\\', '/')
         prefix = file_path.split('/')[-1][:-4]
         cache_file = config.output_dir + '/' + prefix + '.pkl'
+        print(cache_file)
         if os.path.exists(cache_file):
             self.examples = pickle.load(open(cache_file, 'rb'))
         else:
@@ -142,7 +144,7 @@ class myDataset:
             data = [(i, tokenizer) for i in p.getBuggyReportMethodPairs()]
             self.examples = pool.map(tokenize, tqdm(data, total=len(data)))
             pickle.dump(self.examples, open(cache_file, 'wb'))
-        print("dataset loaded")
+        print("dataset loaded", len(self.examples))
 
     def __len__(self):
         return len(self.examples)
