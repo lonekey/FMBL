@@ -6,7 +6,7 @@ from typing import Dict
 from utils.java_parse import get_method, java_to_json
 import uuid
 import random
-
+from tqdm import tqdm
 
 def split_description(filename):
     with open(filename, 'r', errors='ignore') as f:
@@ -191,17 +191,30 @@ class Project:
                     yield bugID, m1, report, self.methods[m1].content, 0
     
 
-    def getAllReportMethodPairs(self):
-        for bugID, bug in self.bugs.items():
+    def getAllReportMethodPairs(self, tokenizer):
+        for method in tqdm(self.methods.values()):
+            method.content = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(method.content))
+        for bugID, bug in tqdm(self.bugs.items()):
             allMethods = self.getMethodIdsByCommitId(bug.bug_exist_version)
             buggyMethods = self.getChangedMethodsByBugID(bugID)
             for m in buggyMethods:
-                allMethods.remove(m.id)
+                if m.id in allMethods:
+                    allMethods.remove(m.id)
             report = bug.bug_summary+'\n'+bug.bug_description
+            nl_tokens = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(report))
             for m in buggyMethods:
-                yield bugID, m.id, report, m.content, 1
+                tokens_ids = [0] + nl_tokens[:254] + [2] + m.content[:254] + [2]
+#                 tokens_ids = tokenizer.convert_tokens_to_ids(tokens)
+                padding_length = 512 - len(tokens_ids)
+                tokens_ids += [1] * padding_length
+                yield bugID, m.id, tokens_ids, 1
             for m1 in allMethods:
-                yield bugID, m1, report, self.methods[m1].content, 0
+                tokens_ids = [0] + nl_tokens[:254] + [2] + self.methods[m1].content[:254] + [2]
+#                 tokens_ids = tokenizer.convert_tokens_to_ids(tokens)
+                padding_length = 512 - len(tokens_ids)
+                tokens_ids += [1] * padding_length
+                yield bugID, m.id, tokens_ids, 1
+
 
 
 

@@ -2,9 +2,12 @@
 # @Author : Cheng Zhu
 # @site : https://gitee.com/lonekey
 # @File : config.py
-
+# mode
+do_train = False
+do_eval = True
 # model
 pretrained_path = "microsoft/codebert-base"
+tokenizer_name = "microsoft/codebert-base"
 output_dir = "cache"
 
 # train

@@ -16,10 +16,11 @@ import numpy as np
 
 
 def main():
-    cpu_count = 1
+    cpu_count = 2
     pool = multiprocessing.Pool(cpu_count)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    tokenizer = RobertaTokenizer.from_pretrained(config.pretrained_path)
+    print("loading...")
+    tokenizer = RobertaTokenizer.from_pretrained(config.tokenizer_name)
     model = RCModel(config.pretrained_path)
     # 定义总参数量、可训练参数量及非可训练参数量变量
     Total_params = 0
@@ -39,7 +40,16 @@ def main():
     print(f'Trainable params: {Trainable_params}')
     print(f'Non-trainable params: {NonTrainable_params}')
     model.to(device)
-    train(model, tokenizer, device, pool)
+    if config.do_train:
+        train(model, tokenizer, device, pool)
+    if config.do_eval:
+        checkpoint_prefix = 'checkpoint-best-mrr/model.bin'
+        output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
+        model.load_state_dict(torch.load(output_dir), strict=False)
+        model.to(device)
+        train(model, tokenizer, device, pool)
+
+        
 
 
 def train(model, tokenizer, device, pool):
@@ -95,22 +105,22 @@ def train(model, tokenizer, device, pool):
             optimizer.zero_grad()
             scheduler.step()
 
-        # evaluate
-        results = evaluate(model, tokenizer, device, pool)
-        for key, value in results.items():
-            print("  %s = %s", key, round(value, 4))
+#         # evaluate
+#         results = evaluate(model, tokenizer, device, pool)
+#         for key, value in results.items():
+#             print("  %s = %s", key, round(value, 4))
         
         # save best model
-        if results['eval_mrr'] > best_mrr:
-            best_mrr = results['eval_mrr']
-            checkpoint_prefix = 'checkpoint-best-mrr'
-            output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            model_to_save = model.module if hasattr(model, 'module') else model
-            output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
-            torch.save(model_to_save.state_dict(), output_dir)
-            print("Saving model checkpoint to %s", output_dir)
+#         if results['eval_mrr'] > best_mrr:
+#             best_mrr = results['eval_mrr']
+        checkpoint_prefix = 'checkpoint-best-mrr'
+        output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        model_to_save = model.module if hasattr(model, 'module') else model
+        output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+        torch.save(model_to_save.state_dict(), output_dir)
+        print("Saving model checkpoint to %s", output_dir)
 
 
 def evaluate(model, tokenizer, device, pool):
@@ -119,12 +129,14 @@ def evaluate(model, tokenizer, device, pool):
     dataIter = DatasetIterater(train_dataset, config.train_batch_size)
 
     model.eval()
-    predicts, labels = [], []
+    bids, cids, predicts, labels = [], [], [], []
     print("eval start...")
-    for batch in dataIter:
+    for batch in tqdm(dataIter):
         # get inputs
         bid, cid, tokens_ids, label = batch
         labels.extend(label)
+        bids.extend(bid)
+        cids.extend(cid)
         sentence = torch.tensor(tokens_ids).to(device)
         label = torch.tensor(label).to(device)
 #             print(sentence, label)
@@ -133,8 +145,9 @@ def evaluate(model, tokenizer, device, pool):
         # print(label)
 
         # calculate scores and loss
-        out = torch.argmax(output, 1).cpu().numpy()
-        predicts.extend(out)
+        out = torch.transpose(out, 0, 1)
+        predicts.extend(out[1].cpu().detach().numpy().tolist())
+    return {"eval_mrr": 123}
 
 
 class myDataset:
@@ -174,8 +187,10 @@ class myDataset:
                 # for i in p.getBuggyReportFilePairs():
                 #     print(i[1])
                 #     break
-                data = [(i, tokenizer) for i in p.getAllReportMethodPairs()]
-                self.examples = pool.map(tokenize, tqdm(data, total=len(data)))
+#                 data = [(i, tokenizer) for i in p.getAllReportMethodPairs()]
+#                 self.examples = pool.map(tokenize, tqdm(data, total=len(data)))
+                self.examples = [i for i in p.getAllReportMethodPairs(tokenizer)]
+
                 pickle.dump(self.examples, open(cache_file, 'wb'))
         print("dataset loaded", len(self.examples))
 
@@ -231,6 +246,12 @@ def tokenize(item):
 
 if __name__ == "__main__":
     main()
+#     cpu_count = 2
+#     pool = multiprocessing.Pool(cpu_count)
+#     tokenizer = RobertaTokenizer.from_pretrained(config.pretrained_path)
+#     train_dataset = myDataset('cache/AspectJ/AspectJ.pkl', tokenizer, pool, for_eval=True).examples
+#     print(len(train_dataset))
+#     print(train_dataset[0])
 
 
 

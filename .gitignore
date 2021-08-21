@@ -9,3 +9,4 @@ src/backend/__pycache__
 src/backend/utils/__pycache__
 .idea
 main.spec
+.ipynb_checkpoints/
