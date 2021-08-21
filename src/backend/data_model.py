@@ -179,12 +179,30 @@ class Project:
         for bugID, bug in self.bugs.items():
             allMethods = self.getMethodIdsByCommitId(bug.bug_exist_version)
             buggyMethods = self.getChangedMethodsByBugID(bugID)
+            # print(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
+            for m in buggyMethods:
+                if m.id in allMethods:
+                    allMethods.remove(m.id)
             report = bug.bug_summary+'\n'+bug.bug_description
             for m in buggyMethods:
                 yield bugID, m.id, report, m.content, 1
                 randomSelectedMethods = random.sample(allMethods, 1)
                 for m1 in randomSelectedMethods:
                     yield bugID, m1, report, self.methods[m1].content, 0
+    
+
+    def getAllReportMethodPairs(self):
+        for bugID, bug in self.bugs.items():
+            allMethods = self.getMethodIdsByCommitId(bug.bug_exist_version)
+            buggyMethods = self.getChangedMethodsByBugID(bugID)
+            for m in buggyMethods:
+                allMethods.remove(m.id)
+            report = bug.bug_summary+'\n'+bug.bug_description
+            for m in buggyMethods:
+                yield bugID, m.id, report, m.content, 1
+            for m1 in allMethods:
+                yield bugID, m1, report, self.methods[m1].content, 0
+
 
 
 if __name__ == "__main__":

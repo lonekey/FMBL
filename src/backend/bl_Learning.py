@@ -43,7 +43,7 @@ def main():
 
 
 def train(model, tokenizer, device, pool):
-    train_dataset = myDataset('cache/AspectJ/AspectJ.pkl', tokenizer, pool).examples
+    train_dataset = myDataset('cache/AspectJ/AspectJ.pkl', tokenizer, pool, for_train=True).examples
     random.shuffle(train_dataset)
     dataIter = DatasetIterater(train_dataset, config.train_batch_size)
     # get optimizer and scheduler
@@ -95,34 +95,51 @@ def train(model, tokenizer, device, pool):
             optimizer.zero_grad()
             scheduler.step()
 
-        # # evaluate
-        # results = evaluate(args, model, tokenizer, args.eval_data_file, pool, eval_when_training=True)
-        # for key, value in results.items():
-        #     logger.info("  %s = %s", key, round(value, 4))
-        #
-        # # save best model
-        # if results['eval_mrr'] > best_mrr:
-        #     best_mrr = results['eval_mrr']
-        #     logger.info("  " + "*" * 20)
-        #     logger.info("  Best mrr:%s", round(best_mrr, 4))
-        #     logger.info("  " + "*" * 20)
-        #
-        #     checkpoint_prefix = 'checkpoint-best-mrr'
-        #     output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))
-        #     if not os.path.exists(output_dir):
-        #         os.makedirs(output_dir)
-        #     model_to_save = model.module if hasattr(model, 'module') else model
-        #     output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
-        #     torch.save(model_to_save.state_dict(), output_dir)
-        #     logger.info("Saving model checkpoint to %s", output_dir)
+        # evaluate
+        results = evaluate(model, tokenizer, device, pool)
+        for key, value in results.items():
+            print("  %s = %s", key, round(value, 4))
+        
+        # save best model
+        if results['eval_mrr'] > best_mrr:
+            best_mrr = results['eval_mrr']
+            checkpoint_prefix = 'checkpoint-best-mrr'
+            output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            model_to_save = model.module if hasattr(model, 'module') else model
+            output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+            torch.save(model_to_save.state_dict(), output_dir)
+            print("Saving model checkpoint to %s", output_dir)
 
 
+def evaluate(model, tokenizer, device, pool):
+    train_dataset = myDataset('cache/AspectJ/AspectJ.pkl', tokenizer, pool, for_eval=True).examples
+    random.shuffle(train_dataset)
+    dataIter = DatasetIterater(train_dataset, config.train_batch_size)
 
+    model.eval()
+    predicts, labels = [], []
+    print("eval start...")
+    for batch in dataIter:
+        # get inputs
+        bid, cid, tokens_ids, label = batch
+        labels.extend(label)
+        sentence = torch.tensor(tokens_ids).to(device)
+        label = torch.tensor(label).to(device)
+#             print(sentence, label)
+        output = model(sentence)
+#             print(output)
+        # print(label)
+
+        # calculate scores and loss
+        out = torch.argmax(output, 1).cpu().numpy()
+        predicts.extend(out)
 
 
 class myDataset:
 
-    def __init__(self, file_path, tokenizer, pool):
+    def __init__(self, file_path, tokenizer, pool, for_train=False, for_eval=False):
         """
 
         :param file_path:
@@ -130,20 +147,36 @@ class myDataset:
         """
         file_path = file_path.replace('\\', '/')
         prefix = file_path.split('/')[-1][:-4]
-        cache_file = config.output_dir + '/' + prefix + '.pkl'
-        print(cache_file)
-        if os.path.exists(cache_file):
-            self.examples = pickle.load(open(cache_file, 'rb'))
-        else:
-            self.examples = []
-            p: Project = pickle.load(open(file_path, 'rb'))
-            print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
-            # for i in p.getBuggyReportFilePairs():
-            #     print(i[1])
-            #     break
-            data = [(i, tokenizer) for i in p.getBuggyReportMethodPairs()]
-            self.examples = pool.map(tokenize, tqdm(data, total=len(data)))
-            pickle.dump(self.examples, open(cache_file, 'wb'))
+        if for_train:
+            cache_file = config.output_dir + '/' + prefix + '.pkl'
+            print(cache_file)
+            if os.path.exists(cache_file):
+                self.examples = pickle.load(open(cache_file, 'rb'))
+            else:
+                self.examples = []
+                p: Project = pickle.load(open(file_path, 'rb'))
+                print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
+                # for i in p.getBuggyReportFilePairs():
+                #     print(i[1])
+                #     break
+                data = [(i, tokenizer) for i in p.getBuggyReportMethodPairs()]
+                self.examples = pool.map(tokenize, tqdm(data, total=len(data)))
+                pickle.dump(self.examples, open(cache_file, 'wb'))
+        if for_eval:
+            cache_file = config.output_dir + '/' + prefix + '_eval.pkl'
+            print(cache_file)
+            if os.path.exists(cache_file):
+                self.examples = pickle.load(open(cache_file, 'rb'))
+            else:
+                self.examples = []
+                p: Project = pickle.load(open(file_path, 'rb'))
+                print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
+                # for i in p.getBuggyReportFilePairs():
+                #     print(i[1])
+                #     break
+                data = [(i, tokenizer) for i in p.getAllReportMethodPairs()]
+                self.examples = pool.map(tokenize, tqdm(data, total=len(data)))
+                pickle.dump(self.examples, open(cache_file, 'wb'))
         print("dataset loaded", len(self.examples))
 
     def __len__(self):
