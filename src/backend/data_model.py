@@ -123,17 +123,17 @@ class Project:
 
     def getChangedFilesByBugID(self, bugId):
         bug = self.bugs[bugId]
-        A = [('A', self.files[file]) for i in bug.fixed_version for file in self.commits[i].A]
-        D = [('D', self.files[file]) for i in bug.fixed_version for file in self.commits[i].D]
-        M = [('M', self.files[file]) for i in bug.fixed_version for file in self.commits[i].M]
+        A = [('A', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].A]
+        D = [('D', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].D]
+        M = [('M', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].M]
         A.extend(D)
         A.extend(M)
-        return A
+        return list(set(A))
 
     def getChangedMethodsByBugID(self, bugId):
         bug = self.bugs[bugId]
-        methods = [self.methods[method] for i in bug.fixed_version for method in self.commits[i].methods]
-        return methods
+        methods = [self.methods[method].method_name for i in bug.fixed_version for method in self.commits[i].methods]
+        return list(set(methods))
 
     def getFilenamesByCommitId(self, commitId):
         filenames = ['/'.join(self.files[i].filename.split('/')[3:]) for i in self.commits[commitId].current_files]
