@@ -107,7 +107,7 @@ def make_pkl(product, raw_project_path, max_dataset_size):
     commit = Commit(commit_id, commit_date)
     thread_list = []
     file_list = getFileList(code_path)
-    for file_name in tqdm(file_list):
+    for file_name in tqdm(file_list, desc="first version files"):
         thread = myThread(project, commit, file_name)
         thread_list.append(thread)
         thread.start()
@@ -119,7 +119,7 @@ def make_pkl(product, raw_project_path, max_dataset_size):
     
     project.commits[commit_id] = commit
     temp_commit = commit
-    for i in tqdm(range(len(work_list))):
+    for i in tqdm(range(len(work_list)), desc="commits"):
         if i == 0:
             continue
         commit_id = fullCommitList[work_list[i]]

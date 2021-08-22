@@ -42,7 +42,7 @@ def diff(code_path, last_commit, this_commit, mode):
     :param mode: A M D
     :return: list of diff files between commit1 commit2
     """
-    command = f"git diff --name-status {last_commit} {this_commit} | findstr \".java\" | findstr \"^{mode}\""
+    command = f"git diff --name-status {last_commit} {this_commit} | grep \".java\" | grep \"^{mode}\""
     # print(command)
     p = subprocess.run(command, shell=True, cwd=code_path, stdout=subprocess.PIPE, encoding='utf8')
     recodes = p.stdout.split('\n')[:-1]
