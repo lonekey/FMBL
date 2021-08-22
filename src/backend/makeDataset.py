@@ -83,6 +83,7 @@ def make_pkl(product, raw_project_path, max_dataset_size):
             commitList.append((commit_id, item['id'], commit_time))
     max_dataset_size = int(max_dataset_size)
     max_dataset_size = min(max_dataset_size, len(commitList))
+    print(f"total fix commit {len(commitList)}, use {max_dataset_size}")
     commitList = sorted(commitList, key= lambda x: x[2])[-max_dataset_size:]
     commitIdList,_,_ = zip(*commitList)
     gl = pd.read_csv(open(f'cache/{product}/git_log.csv', encoding='utf-8'))
@@ -183,10 +184,10 @@ def compare_file(project: Project, b_file: File, file: File):
 
 if __name__ == "__main__":
 
-    # make_pkl('AspectJ', 'E:\SBL\Repository\org.aspectj', 100)
+    make_pkl('AspectJ', 'cache/AspectJ/code', 2000)
 
-    p: Project = pickle.load(open('cache/AspectJ/AspectJ.pkl', 'rb'))
-    print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
+#     p: Project = pickle.load(open('cache/AspectJ/AspectJ.pkl', 'rb'))
+#     print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
     # print(p.commits.values())
     # for i in p.getBugIds():
     #     print(i, p.bugs[i].fixed_version)

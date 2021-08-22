@@ -3,8 +3,8 @@
 # @site : https://gitee.com/lonekey
 # @File : config.py
 # mode
-do_train = False
-do_eval = True
+do_train = True
+do_eval = False
 # model
 pretrained_path = "microsoft/codebert-base"
 tokenizer_name = "microsoft/codebert-base"
