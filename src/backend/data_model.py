@@ -121,7 +121,7 @@ class Project:
     def getBugIds(self):
         return [i for i in self.bugs.keys()]
 
-    def getChangedFilesByBugID(self, bugId):
+    def getChangedFileNamesByBugID(self, bugId):
         bug = self.bugs[bugId]
         A = [('A', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].A]
         D = [('D', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].D]
@@ -130,10 +130,24 @@ class Project:
         A.extend(M)
         return list(set(A))
 
-    def getChangedMethodsByBugID(self, bugId):
+    def getChangedMethodNamesByBugID(self, bugId):
         bug = self.bugs[bugId]
         methods = [self.methods[method].method_name for i in bug.fixed_version for method in self.commits[i].methods]
         return list(set(methods))
+
+    def getChangedFilesByBugID(self, bugId):
+        bug = self.bugs[bugId]
+        A = [('A', self.files[file]) for i in bug.fixed_version for file in self.commits[i].A]
+        D = [('D', self.files[file]) for i in bug.fixed_version for file in self.commits[i].D]
+        M = [('M', self.files[file]) for i in bug.fixed_version for file in self.commits[i].M]
+        A.extend(D)
+        A.extend(M)
+        return A
+
+    def getChangedMethodsByBugID(self, bugId):
+        bug = self.bugs[bugId]
+        methods = [self.methods[method] for i in bug.fixed_version for method in self.commits[i].methods]
+        return methods
 
     def getFilenamesByCommitId(self, commitId):
         filenames = ['/'.join(self.files[i].filename.split('/')[3:]) for i in self.commits[commitId].current_files]
@@ -171,27 +185,32 @@ class Project:
             for status, file in files:
                 yield bugID, file.id, bug.bug_summary+'\n'+bug.bug_description, file.filename+'\n'+self.getFileContentById(file.id), 1
 
-    def getBuggyReportMethodPairs(self):
+    def getBuggyReportMethodPairs(self, start=0, end=1, test_num=-1):
         """
 
         :return: bid, cid, report, code, label
         """
-        for bugID, bug in self.bugs.items():
+        bug_num = len(self.bugs.keys())
+        start = int(start*bug_num)
+        end = int(end*bug_num)
+        for bugID, bug in [i for i in self.bugs.items()][start:end]:
             allMethods = self.getMethodIdsByCommitId(bug.bug_exist_version)
             buggyMethods = self.getChangedMethodsByBugID(bugID)
             # print(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
             for m in buggyMethods:
                 if m.id in allMethods:
                     allMethods.remove(m.id)
-            report = bug.bug_summary+'\n'+bug.bug_description
+            report = bug.bug_summary+'\n'+bug.bug_description+'\n'+bug.bug_comments
             for m in buggyMethods:
                 yield bugID, m.id, report, m.content, 1
-                randomSelectedMethods = random.sample(allMethods, 1)
-                for m1 in randomSelectedMethods:
-                    yield bugID, m1, report, self.methods[m1].content, 0
-    
+            if test_num == -1:
+                randomSelectedMethods = random.sample(allMethods, len(buggyMethods))
+            else:
+                randomSelectedMethods = random.sample(allMethods, int(test_num-len(buggyMethods)))
+            for m1 in randomSelectedMethods:
+                yield bugID, m1, report, self.methods[m1].content, 0
 
-    def getAllReportMethodPairs(self, tokenizer):
+    def getAllReportMethodPairs(self, tokenizer, test_num=300):
         for method in tqdm(self.methods.values()):
             method.content = tokenizer.convert_tokens_to_ids(tokenizer.tokenize(method.content))
         for bugID, bug in tqdm(self.bugs.items()):
@@ -208,7 +227,8 @@ class Project:
                 padding_length = 512 - len(tokens_ids)
                 tokens_ids += [1] * padding_length
                 yield bugID, m.id, tokens_ids, 1
-            for m1 in allMethods:
+            randomSelectedMethods = random.sample(allMethods, test_num-len(buggyMethods))
+            for m1 in randomSelectedMethods:
                 tokens_ids = [0] + nl_tokens[:254] + [2] + self.methods[m1].content[:254] + [2]
 #                 tokens_ids = tokenizer.convert_tokens_to_ids(tokens)
                 padding_length = 512 - len(tokens_ids)

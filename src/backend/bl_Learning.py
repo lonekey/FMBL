@@ -17,6 +17,7 @@ import numpy as np
 
 def main():
     cpu_count = 2
+    set_seed(config.seed)
     pool = multiprocessing.Pool(cpu_count)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print("loading...")
@@ -243,6 +244,14 @@ def tokenize(item):
     tokens_ids += [tokenizer.pad_token_id] * padding_length
     return bid, cid, tokens_ids, label
 
+
+def set_seed(seed=42):
+    random.seed(seed)
+    os.environ['PYHTONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
 
 if __name__ == "__main__":
     main()

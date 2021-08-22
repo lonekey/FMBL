@@ -1,4 +1,5 @@
 import re
+
 stopwords = {"a", "a's", "able", "about", "above", "according", "accordingly", "across", "actually", "after",
              "afterwards", "again", "against", "ain't", "all", "allow", "allows", "almost", "alone", "along", "already",
              "also", "although", "always", "am", "among", "amongst", "an", "and", "another", "any", "anybody", "anyhow",
@@ -111,7 +112,7 @@ def clean_code(text: str):
             new_line += " " + w_s
         # 去除空行
         if new_line.strip() != '':
-            new_lines.extend(new_line.strip().split(' '))
+            new_lines.append(new_line.strip())
     return new_lines
 
 
@@ -126,4 +127,4 @@ def clean_str(text, TREC=False):
     text = text.replace('\n', ' ')
     text = re.sub(' +', ' ', text)
     text = text.strip() if TREC else text.strip().lower()
-    return [text.split(' ')]
+    return text
