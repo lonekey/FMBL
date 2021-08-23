@@ -17,13 +17,13 @@ learning_rate = 0.001
 num_train_epochs = 100
 
 # dataset
-max_r_len = 200
+max_r_len = 500
 max_c_k = 20
-max_c_l = 30
-min_vocab_size = 5
+max_c_l = 40
 dim = 300
-negative_file_num = 20
-negative_method_num = 100
+test_c = 300
+
+
 
 seed = 233
 
@@ -32,3 +32,4 @@ filters = [3, 4, 5]
 filter_num = 100
 dropout = 0.5
 batch_size = 64
+cost = 1

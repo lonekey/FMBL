@@ -11,8 +11,9 @@ from models import RCModel_CNN
 import config
 import torch
 import os
+from tqdm import tqdm
 
-
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 class DatasetIterater:
     def __init__(self, batches, batch_size):
         self.batch_size = batch_size
@@ -49,14 +50,14 @@ class DatasetIterater:
 
 def train(model, train_data, eval_data, W, device, learning_rate, batch_size, num_train_epochs):
     best_MRR = 0
-    Loss = nn.CrossEntropyLoss()
+    Loss = nn.CrossEntropyLoss(weight=torch.tensor([1, config.cost], dtype=torch.float32).to(device))
     optimizer = optim.SGD(model.parameters(), learning_rate, momentum=0.9)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
     t_loss = []
     batch_iter = DatasetIterater(train_data, batch_size)
     for epoch in range(num_train_epochs):
         batch_acc, batch_loss, batch_t_p, batch_t_n = [], [], [], []
-        for bid, cid, report, code, label in batch_iter:
+        for bid, cid, report, code, label in tqdm(batch_iter, desc="train iter"):
             report, code, label = torch.tensor(report, dtype=torch.long), torch.tensor(code,
                                                                                        dtype=torch.long), torch.tensor(
                 label, dtype=torch.long)
@@ -81,7 +82,7 @@ def train(model, train_data, eval_data, W, device, learning_rate, batch_size, nu
         train_info = f"epoch_train: {epoch} \tloss: {sum(batch_loss) / len(batch_loss)}\tacc: {sum(batch_acc) / len(batch_acc)} "
         print(train_info)
         avg_loss, accuracy, t_p, t_n, MRR, top_1, top_5, top_10 = evaluate(model, eval_data, W, device, batch_size)
-        print(f"MRR: {MRR} eval loss: {eval_loss} eval_accuracy: {eval_accuracy} t_p: {t_p} t_n: {t_n}")
+        print(f"MRR: {MRR} top_1: {top_1} top_5: {top_5} top_10: {top_10}\neval loss: {avg_loss} eval_accuracy: {accuracy} t_p: {t_p} t_n: {t_n}")
         scheduler.step()
         if best_MRR < MRR:
             best_MRR = MRR
@@ -100,7 +101,7 @@ def evaluate(model, eval_data, W, device, batch_size):
     t_loss, bids, cids, scores, results, labels = [], [], [], [], [], []
     Loss = nn.CrossEntropyLoss()
     batch_iter = DatasetIterater(eval_data, batch_size)
-    for bid, cid, report, code, label in batch_iter:
+    for bid, cid, report, code, label in tqdm(batch_iter, desc="eval iter"):
         labels.extend(label)
         bids.extend(bid)
         cids.extend(cid)
@@ -176,18 +177,35 @@ def start_train():
     :param train_from_start: use the initial model if True , else use pretrained model in "start_epoch-1"
     :return: None
     """
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_data, eval_data, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
     model = RCModel_CNN(config)
+     # 定义总参数量、可训练参数量及非可训练参数量变量
+    Total_params = 0
+    Trainable_params = 0
+    NonTrainable_params = 0
+
+    # 遍历model.parameters()返回的全局参数列表
+    for param in model.parameters():
+        mulValue = np.prod(param.size())  # 使用numpy prod接口计算参数数组所有元素之积
+        Total_params += mulValue  # 总参数量
+        if param.requires_grad:
+            Trainable_params += mulValue  # 可训练参数量
+        else:
+            NonTrainable_params += mulValue  # 非可训练参数量
+
+    print(f'Total params: {Total_params}')
+    print(f'Trainable params: {Trainable_params}')
+    print(f'Non-trainable params: {NonTrainable_params}')
     model.to(device)
     print("model loaded")
     train(model, train_data, eval_data, W, device, config.learning_rate, config.batch_size, config.num_train_epochs)
 
 
 def start_evaluate():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
@@ -204,5 +222,5 @@ if __name__ == "__main__":
     torch.manual_seed(config.seed)
     torch.cuda.manual_seed(config.seed)
     np.random.seed(config.seed)
-#     start_train()
+    start_train()
     start_evaluate()

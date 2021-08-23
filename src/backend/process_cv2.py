@@ -6,6 +6,7 @@ from tqdm import tqdm
 import gensim
 from data_model import Project
 import random
+import config
 
 
 def load_bin_vec(filename, vocab):
@@ -138,12 +139,8 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
 
 if __name__ == "__main__":
     w2v_file = "GoogleNews-vectors-negative300.bin"
-    code_maxl = 30  # code_maxl max statements per file
-    code_maxk = 20  # code_maxk max words per statement
-    report_maxl = 200  # max report length
-    test_c = 300  # random choose 300 candidate source code
     file_path = "cache/AspectJ/AspectJ.pkl"
-    train_data, eval_data, W, word_idx_map, idx_word_map= load_data(file_path, code_maxl, code_maxk, report_maxl, test_c, w2v_file)
+    train_data, eval_data, W, word_idx_map, idx_word_map= load_data(file_path, config.max_c_l, config.max_c_k, config.max_r_len, config.test_c, w2v_file)
     pickle.dump([train_data, eval_data, W, word_idx_map, idx_word_map], open("cache/AspectJ/parameters.in", "wb"))
     print("Finish processing!")
 
