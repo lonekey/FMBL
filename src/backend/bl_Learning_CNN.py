@@ -10,6 +10,7 @@ from torch import optim
 from models import RCModel_CNN
 import config
 import torch
+import os
 
 
 class DatasetIterater:
@@ -47,6 +48,7 @@ class DatasetIterater:
 
 
 def train(model, train_data, eval_data, W, device, learning_rate, batch_size, num_train_epochs):
+    best_MRR = 0
     Loss = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), learning_rate, momentum=0.9)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
@@ -78,17 +80,30 @@ def train(model, train_data, eval_data, W, device, learning_rate, batch_size, nu
             optimizer.step()
         train_info = f"epoch_train: {epoch} \tloss: {sum(batch_loss) / len(batch_loss)}\tacc: {sum(batch_acc) / len(batch_acc)} "
         print(train_info)
-        eval_loss, eval_accuracy, t_p, t_n = evaluate(model, eval_data, W, device, batch_size)
-        print(f"eval loss: {eval_loss} eval_accuracy: {eval_accuracy} t_p: {t_p} t_n: {t_n}")
+        avg_loss, accuracy, t_p, t_n, MRR, top_1, top_5, top_10 = evaluate(model, eval_data, W, device, batch_size)
+        print(f"MRR: {MRR} eval loss: {eval_loss} eval_accuracy: {eval_accuracy} t_p: {t_p} t_n: {t_n}")
         scheduler.step()
+        if best_MRR < MRR:
+            best_MRR = MRR
+            checkpoint_prefix = 'checkpoint-best-mrr'
+            output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+            model_to_save = model.module if hasattr(model, 'module') else model
+            output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+            torch.save(model_to_save.state_dict(), output_dir)
+            print("Saving model checkpoint to %s", output_dir)
+
 
 
 def evaluate(model, eval_data, W, device, batch_size):
-    t_loss, results, labels = [], [], []
+    t_loss, bids, cids, scores, results, labels = [], [], [], [], [], []
     Loss = nn.CrossEntropyLoss()
     batch_iter = DatasetIterater(eval_data, batch_size)
     for bid, cid, report, code, label in batch_iter:
         labels.extend(label)
+        bids.extend(bid)
+        cids.extend(cid)
         report, code, label = torch.tensor(report, dtype=torch.long), torch.tensor(code,
                                                                                    dtype=torch.long), torch.tensor(
             label, dtype=torch.long)
@@ -97,6 +112,8 @@ def evaluate(model, eval_data, W, device, batch_size):
         report = W[report]
         model.eval()
         prediction = model(report, code)  # 预测分数
+        score = torch.transpose(prediction, 0, 1)[1].cpu().detach().numpy()
+        scores.extend(score)
         out = torch.argmax(prediction, 1)  # 预测结果
         results.extend(out)
         loss = Loss(prediction, label)
@@ -119,10 +136,41 @@ def evaluate(model, eval_data, W, device, batch_size):
     print(f"{t_p}/{p} {t_n}/{n}")
     t_p = t_p / p  # 正样本预测正确的比率
     t_n = t_n / n  # 负样本预测正确的比率
-    return avg_loss, accuracy, t_p, t_n
+#     print(len(bids), len(cids), len(scores), len(labels))
+    MRR, top_1, top_5, top_10 = compute_tric(bids, cids, scores, labels)
+    return avg_loss, accuracy, t_p, t_n, MRR, top_1, top_5, top_10
 
 
-def start_train(train_from_start=True):
+def compute_tric(bids, cids, scores, labels):
+    MAP, MRR, count_1, count_5, count_10 = 0, 0, 0, 0, 0
+    result = {}
+    for i in range(len(bids)):
+        if bids[i] not in result.keys():
+            result[bids[i]]=[(cids[i], scores[i], labels[i])]
+        else:
+            result[bids[i]].append((cids[i], scores[i], labels[i]))
+    bug_num = len(result.keys())
+    for k, v in result.items():
+        v.sort(key=lambda x: x[1], reverse=True)
+        for index, item in enumerate(v):
+            if item[2] == 1:
+                RR = 1/(index+1)
+                MRR += RR
+                if index < 10:
+                    count_10 += 1
+                    if index < 5:
+                        count_5 += 1
+                        if index < 1:
+                            count_1 += 1
+                break
+    MRR = MRR / bug_num
+    top_1 = count_1 / bug_num
+    top_5 = count_5 / bug_num
+    top_10 = count_10 / bug_num
+    return MRR, top_1, top_5, top_10
+        
+
+def start_train():
     """
     load data and then sent data to train, save the final model
     :param train_from_start: use the initial model if True , else use pretrained model in "start_epoch-1"
@@ -133,17 +181,28 @@ def start_train(train_from_start=True):
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
     model = RCModel_CNN(config)
-    # if not train_from_start:
-    #     model_path = save_path + f"{project}_{locate_level}_{dim}_{index}_{start_epoch - 1}.model"
-    #     print(f"load model from {model_path}")
-    #     model.load_state_dict(torch.load(model_path))
     model.to(device)
     print("model loaded")
     train(model, train_data, eval_data, W, device, config.learning_rate, config.batch_size, config.num_train_epochs)
 
 
+def start_evaluate():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    W = torch.tensor(W, dtype=torch.float32)
+    W = W.to(device)
+    model = RCModel_CNN(config)
+    checkpoint_prefix = 'checkpoint-best-mrr'
+    output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
+    output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
+    model.load_state_dict(torch.load(output_dir))
+    model.to(device)
+    print("model loaded")
+    avg_loss, accuracy, t_p, t_n, MRR, top_1, top_5, top_10 = evaluate(model, eval_data, W, device, config.batch_size)
+    print(MRR, top_1, top_5, top_10)
 if __name__ == "__main__":
     torch.manual_seed(config.seed)
     torch.cuda.manual_seed(config.seed)
     np.random.seed(config.seed)
-    start_train()
+#     start_train()
+    start_evaluate()

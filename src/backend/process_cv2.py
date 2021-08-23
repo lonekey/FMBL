@@ -135,18 +135,18 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
 
 
 if __name__ == "__main__":
-    # w2v_file = "GoogleNews-vectors-negative300.bin"
-    # code_maxl = 30  # code_maxl max statements per file
-    # code_maxk = 20  # code_maxk max words per statement
-    # report_maxl = 200  # max report length
-    # test_c = 300  # random choose 300 candidate source code
-    # file_path = "cache/AspectJ/AspectJ.pkl"
-    # train_data, eval_data, W = load_data(file_path, code_maxl, code_maxk, report_maxl, test_c, w2v_file)
-    # pickle.dump([train_data, eval_data, W], open("cache/AspectJ/parameters.in", "wb"))
-    # print("Finish processing!")
+    w2v_file = "GoogleNews-vectors-negative300.bin"
+    code_maxl = 30  # code_maxl max statements per file
+    code_maxk = 20  # code_maxk max words per statement
+    report_maxl = 200  # max report length
+    test_c = 300  # random choose 300 candidate source code
+    file_path = "cache/AspectJ/AspectJ.pkl"
+    train_data, eval_data, W = load_data(file_path, code_maxl, code_maxk, report_maxl, test_c, w2v_file)
+    pickle.dump([train_data, eval_data, W], open("cache/AspectJ/parameters.in", "wb"))
+    print("Finish processing!")
 
-    train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
-    bid, cid, report, code, label = zip(*eval_data)
-    # print(W.shape)
-    # print(report.shape, code.shape)
-    print(len(bid), len(cid), len(label))
+#     train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+#     bid, cid, report, code, label = zip(*eval_data)
+#     # print(W.shape)
+#     # print(report.shape, code.shape)
+#     print(len(bid), len(cid), len(label))

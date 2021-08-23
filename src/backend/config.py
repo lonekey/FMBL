@@ -31,4 +31,4 @@ seed = 233
 filters = [3, 4, 5]
 filter_num = 100
 dropout = 0.5
-batch_size = 8
+batch_size = 64

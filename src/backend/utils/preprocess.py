@@ -118,6 +118,8 @@ def clean_code(text: str):
 
 def clean_str(text, TREC=False):
     # text = re.sub(r"[^A-Za-z(),!?;\'\`]", " ", text)
+    if text is None:
+        return ""
     text = re.sub(r'\d+', ' ', text)
     for sy in symbols:
         text = text.replace(sy, ' ')
