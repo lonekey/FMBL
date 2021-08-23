@@ -64,14 +64,16 @@ def getIdxfrom_sent_n(sent, max_l, word_idx_map, filter_h=5):
 def get_W(word_vecs, k=300):
     vocab_size = len(word_vecs)
     word_idx_map = dict()
+    idx_word_map = dict()
     W = np.zeros(shape=(vocab_size + 1, k), dtype='float32')
     W[0] = np.zeros(k, dtype='float32')
     i = 1
     for word in word_vecs:
         W[i] = word_vecs[word]
         word_idx_map[word] = i
+        idx_word_map[i] = word
         i += 1
-    return W, word_idx_map
+    return W, word_idx_map, idx_word_map
 
 
 def alignData(data, code_maxl):
@@ -110,7 +112,7 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
     print(len(vocab))
     w2v = load_bin_vec(_w2v_file, vocab)
     add_unknown_words(w2v, vocab)
-    W, word_idx_map = get_W(w2v)
+    W, word_idx_map, idx_word_map = get_W(w2v)
     _train_data, _eval_data = [], []
     # for train
     for _bid, _cid, _report, _code, _label in tqdm(p.getBuggyReportMethodPairs(end=0.9), desc="for train"):
@@ -131,7 +133,7 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
     print(W.shape)
     random.shuffle(_train_data)
     print("Finish loading")
-    return _train_data, _eval_data, W
+    return _train_data, _eval_data, W, word_idx_map, idx_word_map
 
 
 if __name__ == "__main__":
@@ -141,8 +143,8 @@ if __name__ == "__main__":
     report_maxl = 200  # max report length
     test_c = 300  # random choose 300 candidate source code
     file_path = "cache/AspectJ/AspectJ.pkl"
-    train_data, eval_data, W = load_data(file_path, code_maxl, code_maxk, report_maxl, test_c, w2v_file)
-    pickle.dump([train_data, eval_data, W], open("cache/AspectJ/parameters.in", "wb"))
+    train_data, eval_data, W, word_idx_map, idx_word_map= load_data(file_path, code_maxl, code_maxk, report_maxl, test_c, w2v_file)
+    pickle.dump([train_data, eval_data, W, word_idx_map, idx_word_map], open("cache/AspectJ/parameters.in", "wb"))
     print("Finish processing!")
 
 #     train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))

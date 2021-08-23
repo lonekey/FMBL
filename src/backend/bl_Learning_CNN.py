@@ -177,7 +177,7 @@ def start_train():
     :return: None
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    train_data, eval_data, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
     model = RCModel_CNN(config)
