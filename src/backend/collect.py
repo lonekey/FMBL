@@ -44,7 +44,7 @@ class myThread(threading.Thread):
             self.bug_info_list.append(bug_info)
             lock.release()
         except Exception:
-            print('error')
+            print(f"error")
 
 
 def get_bug_info(content):
@@ -78,23 +78,27 @@ def get_bug_links(content):
     return dict(zip(bugs_id, bugs_link))
 
 
-def collect_bug_report(product, website):
+def collect_bug_report(product, website, component=None):
     """ Fetch issues that match given jql query """
-    save_path = f"cache/{product}/issues"
-    os.makedirs(save_path, exist_ok=True)
-    if not os.path.exists(f"{save_path}/total.html"):
-        request = f"{website}/buglist.cgi?bug_status=CLOSED&bug_status=RESOLVED&bug_status=VERIFIED&field0" \
-                    "-0-0=product&limit=0&no_redirect=1&order=component%2Cbug_status%2Cpriority%2Cassigned_to%2Cbug_id" \
-                    f"&query_format=advanced&resolution=FIXED&type0-0-0=substring&value0-0-0={product}"
-        content = url.urlopen(request).read()
-        open(f"{save_path}/total.html", 'wb').write(content)
+    if component:
+        save_path = f"cache/{product}/{component}"
     else:
-        content = open(f"{save_path}/total.html")
+        save_path = f"cache/{product}"
+    issues_path = f"{save_path}/issues"
+    os.makedirs(issues_path, exist_ok=True)
+    if not os.path.exists(f"{issues_path}/total.html"):
+        request = f"{website}/buglist.cgi?bug_status=RESOLVED&limit=0&product={product}&query_format=advanced&resolution=FIXED"
+        if component:
+            request+= f"&component={component}"
+        content = url.urlopen(request).read()
+        open(f"{issues_path}/total.html", 'wb').write(content)
+    else:
+        content = open(f"{issues_path}/total.html")
     bug_links = get_bug_links(content)
     bug_info_list = []
     threads = []
     for bug_id, bug_link in bug_links.items():
-        thread = myThread(website, save_path, bug_id, bug_link, bug_info_list)
+        thread = myThread(website, issues_path, bug_id, bug_link, bug_info_list)
         threads.append(thread)
         thread.start()
     while len(threads) != 0:
@@ -102,7 +106,7 @@ def collect_bug_report(product, website):
             threads.pop()
         else:
             time.sleep(1)
-    with open(f"cache/{product}/bug_report.json", 'w') as f:
+    with open(f"{save_path}/bug_report.json", 'w') as f:
         json.dump(bug_info_list, f)
         f.close()
     
@@ -201,3 +205,64 @@ def matchRC(product):
 # bug_repo = json.load(open('cache/AspectJ/bug_repo.json', encoding='utf-8'))
 # for i in bug_repo:
 #     print(i['fixCommit'])
+
+# collect_bug_report('Platform', 'https://bugs.eclipse.org/bugs')
+
+def getBugID():
+    website = "https://bz.apache.org/"
+    for filename in os.listdir('cache/exp_data'):
+        print(filename)
+        save_path = f'cache/{filename[:-4]}'
+        issues_path = f'cache/{filename[:-4]}/issues'
+        os.makedirs(issues_path, exist_ok=True)
+        with open(f"cache/exp_data/{filename}", 'r') as f:
+            soup = BeautifulSoup(f, "lxml")
+        f.close()
+        lst = soup.find("database").select("table")[::-1]
+        bug_ids = [str(bug_info.select('[name=bug_id]')[0].string) for bug_info in lst]
+
+        # bug_report_path = f"{save_path}/bug_report.json"
+        # git_log_path = f'{save_path}/git_log.csv'
+        # br = json.load(open(bug_report_path, encoding='utf-8'))
+        # gl = pd.read_csv(open(git_log_path, encoding='utf-8'))
+        # bug_commit_map = {}
+        # for bug_info in lst:
+        #     bug_id = str(bug_info.select('[name=bug_id]')[0].string)
+        #     commitid= str(bug_info.select('[name=commit]')[0].string)
+        #     bug_commit_map[bug_id] = commitid
+        # bug_repo = {}
+        # for item in br:
+        #     fixCommit = {}
+        #     for i in gl.itertuples():
+        #         if str(i.commit).startswith(bug_commit_map[item['id']]):
+        #             if type(i.commit) is str:
+        #                 fixCommit[i.commit]= i.Date
+        #     if len(fixCommit.keys()) > 0:
+        #         item['fixCommit'] = fixCommit
+        #         bug_repo[item['id']] = item
+        # json.dump(bug_repo, open(f'{save_path}/bug_repo.json', 'w', encoding='utf-8'))
+
+        bug_repos = json.load(open(f'cache/{filename[:-4]}/bug_repo.json', 'r'))
+        bug_reports = json.load(open(f'cache/{filename[:-4]}/bug_report.json', 'r'))
+        print(len(bug_ids), len(bug_reports), len(bug_repos))
+        # bug_links = {}
+        # for bug_id in bug_ids:
+        #     bug_links[bug_id] = "show_bug.cgi?id="+bug_id
+        # bug_info_list = []
+        # threads = []
+        # for bug_id, bug_link in bug_links.items():
+        #     thread = myThread(website, issues_path, bug_id, bug_link, bug_info_list)
+        #     threads.append(thread)
+        #     thread.start()
+        # while len(threads) != 0:
+        #     if not threads[-1].is_alive():
+        #         threads.pop()
+        #     else:
+        #         time.sleep(1)
+        # with open(f"{save_path}/bug_report.json", 'w') as f:
+        #     json.dump(bug_info_list, f)
+        #     f.close()
+        # return
+getBugID()
+# collect_git_log('Tomcat', 'E:\\buglocate\src\\backend\\cache\\Tomcat\\code')
+# matchRC('Tomcat')
