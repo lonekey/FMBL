@@ -89,7 +89,7 @@ def alignData(data, code_maxl):
     return new_data
 
 
-def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_file):
+def load_data(_file_path, _file_maxl, _method_maxl, _code_maxk, _report_maxl, _test_c, _w2v_file):
     # code_maxl max statements per file
     # code_maxk max words per statement
 
@@ -123,7 +123,7 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
         _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
         if _code.shape[0] == 0:
             continue
-        _code = alignData(_code, _code_maxl)
+        _code = alignData(_code, _file_maxl)
         _train_data_file.append((_bid, _cid, _report, _code, _label))
     # for eval
     for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(start=0.9, test_num=_test_c), desc="for eval"):
@@ -131,7 +131,7 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
         _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
         if _code.shape[0] == 0:
             continue
-        _code = alignData(_code, _code_maxl)
+        _code = alignData(_code, _file_maxl)
         _eval_data_file.append((_bid, _cid, _report, _code, _label))
     # method level
     # for train
@@ -140,7 +140,7 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
         _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
         if _code.shape[0] == 0:
             continue
-        _code = alignData(_code, _code_maxl)
+        _code = alignData(_code, _method_maxl)
         _train_data_method.append((_bid, _cid, _report, _code, _label))
     # for eval
     _bid, _cid, _report, _code, _label = zip(*_eval_data_file)
@@ -156,7 +156,7 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
         _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
         if _code.shape[0] == 0:
             continue
-        _code = alignData(_code, _code_maxl)
+        _code = alignData(_code, _method_maxl)
         _eval_data_method.append((_bid, _cid, _report, _code, _label))
 
     print(W.shape)
@@ -166,16 +166,19 @@ def load_data(_file_path, _code_maxl, _code_maxk, _report_maxl, _test_c, _w2v_fi
 
 
 if __name__ == "__main__":
-    w2v_file = "GoogleNews-vectors-negative300.bin"
-    file_path = "cache/AspectJ/AspectJ.pkl"
-    train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map= load_data(file_path, config.max_c_l, config.max_c_k, config.max_r_len, config.test_c, w2v_file)
-    pickle.dump([train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map], open("cache/AspectJ/parameters.in", "wb"))
-    print("Finish processing!")
+    # w2v_file = "GoogleNews-vectors-negative300.bin"
+    # file_path = "cache/AspectJ/AspectJ.pkl"
+    # train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map= load_data(file_path, config.max_f_l, config.max_m_l, config.max_c_k, config.max_r_len, config.test_c, w2v_file)
+    # pickle.dump([train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map], open("cache/AspectJ/parameters.in", "wb"))
+    # print("Finish processing!")
 
-    # train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
     
-    # print(W.shape)
-    # for data in [train_data_file, eval_data_file, train_data_method, eval_data_method]:
-    #     bid, cid, report, code, label = zip(*data)
-    #     # print(report.shape, code.shape)
-    #     print(len(bid), len(cid), len(label))
+    print(W.shape)
+    for data in [train_data_file, eval_data_file, train_data_method, eval_data_method]:
+        bid, cid, report, code, label = zip(*data)
+        print(len(bid), len(cid), len(label))
+        bid, cid, report, code, label = data[0]
+        print(report.shape, code.shape)
+
+

@@ -19,7 +19,8 @@ num_train_epochs = 100
 # dataset
 max_r_len = 500
 max_c_k = 20
-max_c_l = 40
+max_f_l = 400
+max_m_l = 40
 dim = 300
 test_c = 300
 
