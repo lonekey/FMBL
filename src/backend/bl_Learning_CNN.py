@@ -48,7 +48,7 @@ class DatasetIterater:
             return self.n_batches
 
 
-def train(model, train_data, eval_data, W, device, learning_rate, batch_size, num_train_epochs):
+def train(model, train_data, eval_data, W, device, level, learning_rate, batch_size, num_train_epochs):
     best_MRR = 0
     Loss = nn.CrossEntropyLoss(weight=torch.tensor([1, config.cost], dtype=torch.float32).to(device))
     optimizer = optim.SGD(model.parameters(), learning_rate, momentum=0.9)
@@ -86,7 +86,7 @@ def train(model, train_data, eval_data, W, device, learning_rate, batch_size, nu
         scheduler.step()
         if best_MRR < MRR:
             best_MRR = MRR
-            checkpoint_prefix = 'checkpoint-best-mrr'
+            checkpoint_prefix = f'AspectJ/{level}'
             output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
@@ -171,14 +171,22 @@ def compute_tric(bids, cids, scores, labels):
     return MRR, top_1, top_5, top_10
         
 
-def start_train():
+def start_train(level):
     """
     load data and then sent data to train, save the final model
     :param train_from_start: use the initial model if True , else use pretrained model in "start_epoch-1"
     :return: None
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_data, eval_data, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    train_data_file, eval_data_file, train_data_method, eval_data_method, W, _, _ = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    if level == "file":
+        config.max_c_l = config.max_f_l
+        train_data = train_data_file
+        eval_data = eval_data_file
+    if level == "method":
+        config.max_c_l = config.max_m_l
+        train_data = train_data_method
+        eval_data = eval_data_method
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
     model = RCModel_CNN(config)
@@ -201,16 +209,22 @@ def start_train():
     print(f'Non-trainable params: {NonTrainable_params}')
     model.to(device)
     print("model loaded")
-    train(model, train_data, eval_data, W, device, config.learning_rate, config.batch_size, config.num_train_epochs)
+    train(model, train_data, eval_data, W, device, level, config.learning_rate, config.batch_size, config.num_train_epochs)
 
 
-def start_evaluate():
+def start_evaluate(level):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_data, eval_data, W = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    _, eval_data_file, _, eval_data_method, W, _, _ = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    if level == "file":
+        eval_data = eval_data_file
+        config.max_c_l = config.max_f_l
+    if level == "method":
+        config.max_c_l = config.max_m_l
+        eval_data = eval_data_method
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
     model = RCModel_CNN(config)
-    checkpoint_prefix = 'checkpoint-best-mrr'
+    checkpoint_prefix = f'AspectJ/{level}'
     output_dir = os.path.join(config.output_dir, '{}'.format(checkpoint_prefix))
     output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
     model.load_state_dict(torch.load(output_dir))
@@ -222,5 +236,9 @@ if __name__ == "__main__":
     torch.manual_seed(config.seed)
     torch.cuda.manual_seed(config.seed)
     np.random.seed(config.seed)
-    start_train()
-    start_evaluate()
+    file = 'file'
+    method = 'method'
+    start_train(file)
+    start_evaluate(file)
+    start_train(method)
+    start_evaluate(method)
