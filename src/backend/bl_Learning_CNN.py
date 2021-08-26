@@ -12,6 +12,7 @@ import config
 import torch
 import os
 from tqdm import tqdm
+from process_cv2 import load_data
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0,1'
 class DatasetIterater:
@@ -178,15 +179,18 @@ def start_train(level):
     :return: None
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    train_data_file, eval_data_file, train_data_method, eval_data_method, W, _, _ = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+    w2v_file = "GoogleNews-vectors-negative300.bin"
+    file_path = "cache/AspectJ/AspectJ.pkl"
     if level == "file":
+        data, W, word_idx_map, idx_word_map= load_data(file_path, config, w2v_file=w2v_file, for_train=True, for_file=True, for_eval=True)
         config.max_c_l = config.max_f_l
-        train_data = train_data_file
-        eval_data = eval_data_file
+        train_data = data["file_train"]
+        eval_data = data["file_eval"] 
     if level == "method":
+        data, W, word_idx_map, idx_word_map= load_data(file_path, config, w2v_file=w2v_file, for_train=True, for_method=True, for_eval=True)
         config.max_c_l = config.max_m_l
-        train_data = train_data_method
-        eval_data = eval_data_method
+        train_data = data["method_train"]
+        eval_data = data["method_eval"]
     W = torch.tensor(W, dtype=torch.float32)
     W = W.to(device)
     model = RCModel_CNN(config)
@@ -239,6 +243,6 @@ if __name__ == "__main__":
     file = 'file'
     method = 'method'
     start_train(file)
-    start_evaluate(file)
+    # start_evaluate(file)
     start_train(method)
-    start_evaluate(method)
+    # start_evaluate(method)
