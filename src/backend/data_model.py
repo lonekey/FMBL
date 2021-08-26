@@ -171,7 +171,7 @@ class Project:
         return content
 
 
-    def getReportFilePairs(self, start=0, end=1, negative_example_num=-1):
+    def getReportFilePairs(self, start=0, end=1, negative_example_num=-1, eval_num=-1):
         """
 
         :return: bid, cid, report, code, label
@@ -190,11 +190,13 @@ class Project:
             report = bug.bug_summary+'\n'+bug.bug_description+'\n'+bug.bug_comments
             for _, f in buggyFiles:
                 yield bugID, f.id, report, preprocess.clean_code(f.filename)+self.getFileContentById(f.id), 1
-            if negative_example_num == -1:
+            if negative_example_num == -1 or eval_num==-1:
                 # randomSelectedMethods = random.sample(allFiles, len(buggyFiles))
                 randomSelectedMethods =allFiles
-            else:
+            if negative_example_num != -1:
                 randomSelectedMethods = random.sample(allFiles, int(negative_example_num*len(buggyFiles)))
+            if eval_num != -1:
+                randomSelectedMethods = random.sample(allFiles, int(eval_num-len(buggyFiles)))
             for f1 in randomSelectedMethods:
                 yield bugID, f1, report, preprocess.clean_code(self.files[f1].filename)+self.getFileContentById(f1), 0
 

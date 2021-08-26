@@ -134,7 +134,7 @@ def load_data(file_path, config, for_train=False, for_eval=False, for_test=False
                 _code = alignData(_code, config.max_f_l)
                 _train_data_file.append((_bid, _cid, _report, _code, _label))
         if for_eval:
-            for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(start=0.8), desc="for eval"):
+            for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(start=0.8, eval_num=config.test_c), desc="for eval"):
                 _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
                 _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
                 if _code.shape[0] == 0:
