@@ -46,7 +46,6 @@ class Commit:
         # 变更了的文件
         self.A = set()
         self.D = set()
-        self.M = set()
         # 修改了的方法(A\D\M)
         self.methods = set()
 
@@ -100,7 +99,6 @@ class Method:
         self.comment = f["comment"]
         self.start = f["start"]
         self.end = f["end"]
-        # 如果这个方法发生修改了，值设置成False
         self.id = uuid.uuid1()
         self.file = file_uuid
 
@@ -130,9 +128,7 @@ class Project:
         bug = self.bugs[bugId]
         A = [('A', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].A]
         D = [('D', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].D]
-        M = [('M', self.files[file].filename) for i in bug.fixed_version for file in self.commits[i].M]
         A.extend(D)
-        A.extend(M)
         return list(set(A))
 
     def getChangedMethodNamesByBugID(self, bugId):
@@ -144,9 +140,7 @@ class Project:
         bug = self.bugs[bugId]
         A = [('A', self.files[file]) for i in bug.fixed_version for file in self.commits[i].A]
         D = [('D', self.files[file]) for i in bug.fixed_version for file in self.commits[i].D]
-        M = [('M', self.files[file]) for i in bug.fixed_version for file in self.commits[i].M]
         A.extend(D)
-        A.extend(M)
         return A
 
     def getChangedMethodsByBugID(self, bugId):
@@ -177,7 +171,7 @@ class Project:
         return content
 
 
-    def getReportFilePairs(self, start=0, end=1, test_num=-1):
+    def getReportFilePairs(self, start=0, end=1, negative_example_num=-1):
         """
 
         :return: bid, cid, report, code, label
@@ -188,6 +182,7 @@ class Project:
         for bugID, bug in [i for i in self.bugs.items()][start:end]:
             allFiles = self.getFileIdsByCommitId(bug.bug_exist_version) # id
             buggyFiles = self.getChangedFilesByBugID(bugID)
+            
             # print(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
             for _, f in buggyFiles:
                 if f.id in allFiles:
@@ -195,14 +190,15 @@ class Project:
             report = bug.bug_summary+'\n'+bug.bug_description+'\n'+bug.bug_comments
             for _, f in buggyFiles:
                 yield bugID, f.id, report, preprocess.clean_code(f.filename)+self.getFileContentById(f.id), 1
-            if test_num == -1:
-                randomSelectedMethods = random.sample(allFiles, len(buggyFiles))
+            if negative_example_num == -1:
+                # randomSelectedMethods = random.sample(allFiles, len(buggyFiles))
+                randomSelectedMethods =allFiles
             else:
-                randomSelectedMethods = random.sample(allFiles, int(test_num-len(buggyFiles)))
+                randomSelectedMethods = random.sample(allFiles, int(negative_example_num*len(buggyFiles)))
             for f1 in randomSelectedMethods:
                 yield bugID, f1, report, preprocess.clean_code(self.files[f1].filename)+self.getFileContentById(f1), 0
 
-    def getReportMethodPairs(self, start=0, end=1, bug_file_map=None):
+    def getReportMethodPairs(self, start=0, end=1, negative_example_num=-1):
         """
 
         :return: bid, cid, report, code, label
@@ -220,15 +216,36 @@ class Project:
             report = bug.bug_summary+'\n'+bug.bug_description+'\n'+bug.bug_comments
             for m in buggyMethods:
                 yield bugID, m.id, report, m.content, 1
-            if bug_file_map is None:
-                randomSelectedMethods = random.sample(allMethods, len(buggyMethods))
+            if negative_example_num != -1:
+                randomSelectedMethods = random.sample(allMethods, int(negative_example_num*len(buggyMethods)))
             else:
-                files = bug_file_map[bugID]
-                randomSelectedMethods = []
-                for fileId in files:
-                    randomSelectedMethods.extend(self.files[fileId].method_list)
+                randomSelectedMethods = allMethods
+                # files = bug_file_map[bugID]
+                # randomSelectedMethods = []
+                # for fileId in files:
+                #     randomSelectedMethods.extend(self.files[fileId].method_list)
             for m1 in randomSelectedMethods:
                 yield bugID, m1, report, self.methods[m1].content, 0
+    
+    def getBuggyCodes(self):
+        """
+
+        :return: bid, cid, report, code, label
+        """
+        for bugID, bug in self.bugs.items():
+            print(bug.bug_id)
+            buggyMethods = self.getChangedMethodsByBugID(bugID)
+            buggyFiles = self.getChangedFilesByBugID(bugID)
+            for mode, f in buggyFiles:
+                print(mode, f.filename)
+                for m in f.method_list:
+                    for m1 in buggyMethods:
+                        if m == m1.id:
+                            print(self.files[m1.file].filename, m1.method_name)
+                            buggyMethods.remove(m1)
+                            break
+            print("untracked methods: ", [(self.files[i.file].filename, i.method_name) for i in buggyMethods])
+                    
 
 
 if __name__ == "__main__":

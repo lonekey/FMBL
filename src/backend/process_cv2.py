@@ -89,96 +89,111 @@ def alignData(data, code_maxl):
     return new_data
 
 
-def load_data(_file_path, _file_maxl, _method_maxl, _code_maxk, _report_maxl, _test_c, _w2v_file):
-    # code_maxl max statements per file
-    # code_maxk max words per statement
-
+def makeVocab(_file_path, _w2v_file):
     vocab = defaultdict(float)
     p: Project = pickle.load(open(_file_path, 'rb'))
-    for method in tqdm(p.methods.values()):
-        method.content = clean_code(method.content)
-        for line in method.content:
-            for word in line.split():
-                vocab[word] += 1
-    for bug in tqdm(p.bugs.values()):
-        bug.bug_description = clean_str(bug.bug_description)
-        bug.bug_summary = clean_str(bug.bug_summary)
-        bug.bug_comments = ' '.join([clean_str(comment['comment']) for comment in bug.bug_comments])
-        for text in [bug.bug_description, bug.bug_summary, bug.bug_comments]:
-            if len(text) <= 1:
-                continue
-            words = set(text.split())
-            for word in words:
-                vocab[word] += 1
-    print(len(vocab))
-    w2v = load_bin_vec(_w2v_file, vocab)
-    add_unknown_words(w2v, vocab)
-    W, word_idx_map, idx_word_map = get_W(w2v)
+    if not hasattr(p, "processed"):
+        for method in tqdm(p.methods.values(), desc='methods'):
+            method.content = clean_code(method.content)
+            for line in method.content:
+                for word in line.split():
+                    vocab[word] += 1
+        for bug in tqdm(p.bugs.values(), desc='bugs'):
+            bug.bug_description = clean_str(bug.bug_description)
+            bug.bug_summary = clean_str(bug.bug_summary)
+            bug.bug_comments = ' '.join([clean_str(comment['comment']) for comment in bug.bug_comments])
+            for text in [bug.bug_description, bug.bug_summary, bug.bug_comments]:
+                if len(text) <= 1:
+                    continue
+                words = set(text.split())
+                for word in words:
+                    vocab[word] += 1
+        print(len(vocab))
+        w2v = load_bin_vec(_w2v_file, vocab)
+        add_unknown_words(w2v, vocab)
+        W, word_idx_map, idx_word_map = get_W(w2v)
+        p.W = W
+        p.word_idx_map = word_idx_map
+        p.idx_word_map = idx_word_map
+        p.processed = True
+        pickle.dump(p, open(_file_path, "wb"))
+    return p
+
+def load_data(file_path, config, for_train=False, for_eval=False, for_test=False, for_file=False, for_method=False, w2v_file=None):
+
+    p = makeVocab(file_path, w2v_file)
     _train_data_file, _eval_data_file = [], []
     _train_data_method, _eval_data_method = [], []
-    # file level
-    # for train
-    for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(end=0.9), desc="for train"):
-        _report = np.array(getIdxfrom_sent_n(_report, _report_maxl, word_idx_map, filter_h=5))
-        _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
-        if _code.shape[0] == 0:
-            continue
-        _code = alignData(_code, _file_maxl)
-        _train_data_file.append((_bid, _cid, _report, _code, _label))
-    # for eval
-    for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(start=0.9, test_num=_test_c), desc="for eval"):
-        _report = np.array(getIdxfrom_sent_n(_report, _report_maxl, word_idx_map, filter_h=5))
-        _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
-        if _code.shape[0] == 0:
-            continue
-        _code = alignData(_code, _file_maxl)
-        _eval_data_file.append((_bid, _cid, _report, _code, _label))
-    # method level
-    # for train
-    for _bid, _cid, _report, _code, _label in tqdm(p.getReportMethodPairs(end=0.9), desc="for train"):
-        _report = np.array(getIdxfrom_sent_n(_report, _report_maxl, word_idx_map, filter_h=5))
-        _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
-        if _code.shape[0] == 0:
-            continue
-        _code = alignData(_code, _method_maxl)
-        _train_data_method.append((_bid, _cid, _report, _code, _label))
-    # for eval
-    _bid, _cid, _report, _code, _label = zip(*_eval_data_file)
-    bug_file_map = dict()
-    for i in range(len(_bid)):
-        if _bid[i] in bug_file_map.keys():
-            bug_file_map[_bid[i]].append(_cid[i])
-        else:
-            bug_file_map[_bid[i]] = [_cid[i]]
-    print(bug_file_map.keys())
-    for _bid, _cid, _report, _code, _label in tqdm(p.getReportMethodPairs(start=0.9, bug_file_map=bug_file_map), desc="for eval"):
-        _report = np.array(getIdxfrom_sent_n(_report, _report_maxl, word_idx_map, filter_h=5))
-        _code = np.array([getIdxfrom_sent(i, word_idx_map, _code_maxk) for i in _code])
-        if _code.shape[0] == 0:
-            continue
-        _code = alignData(_code, _method_maxl)
-        _eval_data_method.append((_bid, _cid, _report, _code, _label))
-
-    print(W.shape)
+    if for_file:
+        if for_train:
+            for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(end=0.8, negative_example_num=config.negative_f_num), desc="for train"):
+                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+                if _code.shape[0] == 0:
+                    continue
+                _code = alignData(_code, config.max_f_l)
+                _train_data_file.append((_bid, _cid, _report, _code, _label))
+        if for_eval:
+            for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(start=0.8), desc="for eval"):
+                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+                if _code.shape[0] == 0:
+                    continue
+                _code = alignData(_code, config.max_f_l)
+                _eval_data_file.append((_bid, _cid, _report, _code, _label))
+    if for_method:
+        if for_train:
+            for _bid, _cid, _report, _code, _label in tqdm(p.getReportMethodPairs(end=0.8, negative_example_num=config.negative_m_num), desc="for train"):
+                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+                if _code.shape[0] == 0:
+                    continue
+                _code = alignData(_code, config.max_m_l)
+                _train_data_method.append((_bid, _cid, _report, _code, _label))
+            # for eval
+        # _bid, _cid, _report, _code, _label = zip(*_eval_data_file)
+        # bug_file_map = dict()
+        # for i in range(len(_bid)):
+        #     if _bid[i] in bug_file_map.keys():
+        #         bug_file_map[_bid[i]].append(_cid[i])
+        #     else:
+        #         bug_file_map[_bid[i]] = [_cid[i]]
+        # print(bug_file_map.keys())
+        if for_eval:
+            for _bid, _cid, _report, _code, _label in tqdm(p.getReportMethodPairs(start=0.8), desc="for eval"):
+                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+                if _code.shape[0] == 0:
+                    continue
+                _code = alignData(_code, config.max_m_l)
+                _eval_data_method.append((_bid, _cid, _report, _code, _label))
     random.shuffle(_train_data_file)
+    random.shuffle(_train_data_method)
+    data = {}
+    data["file_train"] = _train_data_file
+    data["file_eval"] = _eval_data_file
+    data["method_train"] = _train_data_method
+    data["method_eval"] = _eval_data_method
     print("Finish loading")
-    return _train_data_file, _eval_data_file, _train_data_method, _eval_data_method, W, word_idx_map, idx_word_map
+    return data, p.W, p.word_idx_map, p.idx_word_map
 
 
 if __name__ == "__main__":
-    # w2v_file = "GoogleNews-vectors-negative300.bin"
-    # file_path = "cache/AspectJ/AspectJ.pkl"
-    # train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map= load_data(file_path, config.max_f_l, config.max_m_l, config.max_c_k, config.max_r_len, config.test_c, w2v_file)
-    # pickle.dump([train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map], open("cache/AspectJ/parameters.in", "wb"))
-    # print("Finish processing!")
+    PROJECT_LIST = ["AspectJ", "Eclipse_Platform_UI", "Birt", "JDT", "Tomcat"]
+    w2v_file = "GoogleNews-vectors-negative300.bin"
+    for p in PROJECT_LIST:
+        file_path = f"cache/{p}/{p}.pkl"
+        data, W, word_idx_map, idx_word_map= load_data(file_path, config, w2v_file=w2v_file, for_train=True, for_file=True, for_eval=True)
 
-    train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
+        print("Finish processing!")
+
+    # train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
     
-    print(W.shape)
-    for data in [train_data_file, eval_data_file, train_data_method, eval_data_method]:
-        bid, cid, report, code, label = zip(*data)
-        print(len(bid), len(cid), len(label))
-        bid, cid, report, code, label = data[0]
-        print(report.shape, code.shape)
+    # print(W.shape)
+    # for data in [train_data_file, eval_data_file, train_data_method, eval_data_method]:
+    #     bid, cid, report, code, label = zip(*data)
+    #     print(len(bid), len(cid), len(label))
+    #     bid, cid, report, code, label = data[0]
+    #     print(report.shape, code.shape)
 
 

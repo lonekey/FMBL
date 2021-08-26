@@ -17,6 +17,8 @@ import time
 import copy
 from tqdm import tqdm
 from shutil import copytree
+import multiprocessing
+
 
 sys.setrecursionlimit(1000000)
 lock = threading.Lock()
@@ -30,7 +32,7 @@ def add_change(code_path, project: Project, prior_commit: Commit, this_commit: C
     # print('A', len(file_add_list), end='\t\t')
     # print('M', len(file_modified_list), end='\t\t')
     # print('D', len(file_del_list))
-    this_commit.current_files = copy.copy(prior_commit.current_files)
+    this_commit.current_files = copy.deepcopy(prior_commit.current_files)
     # print(len(this_commit.current_files))
 
     for delete_file in file_del_list:
@@ -51,10 +53,11 @@ def add_change(code_path, project: Project, prior_commit: Commit, this_commit: C
     for modified_file in file_modified_list:
         file = File(project, modified_file)
         project.files[file.id] = file
-        this_commit.M.add(file.id)
         for b_file_id in this_commit.current_files.copy():
             b_file = project.files[b_file_id]
             if b_file.filename == modified_file:
+                this_commit.A.add(file.id)
+                this_commit.D.add(b_file.id)
                 this_commit.current_files.remove(b_file.id)
                 this_commit.current_files.add(file.id)
                 changed_methods = compare_file(project, b_file, file)
@@ -84,7 +87,7 @@ def make_pkl(product, raw_project_path, max_dataset_size):
     max_dataset_size = int(max_dataset_size)
     max_dataset_size = min(max_dataset_size, len(commitList))
     print(f"total fix commit {len(commitList)}, use {max_dataset_size}")
-    commitList = sorted(commitList, key= lambda x: x[2])[-max_dataset_size:]
+    commitList = sorted(commitList, key= lambda x: x[2])[:max_dataset_size]
     commitIdList,_,_ = zip(*commitList)
     gl = pd.read_csv(open(f'cache/{product}/git_log.csv', encoding='utf-8'))
     gl = gl.sort_values(by=['Date'])
@@ -108,7 +111,7 @@ def make_pkl(product, raw_project_path, max_dataset_size):
     commit = Commit(commit_id, commit_date)
     thread_list = []
     file_list = getFileList(code_path)
-    for file_name in tqdm(file_list, desc="first version files"):
+    for file_name in tqdm(file_list, desc=f"[{product}] first version files"):
         thread = myThread(project, commit, file_name)
         thread_list.append(thread)
         thread.start()
@@ -120,7 +123,7 @@ def make_pkl(product, raw_project_path, max_dataset_size):
     
     project.commits[commit_id] = commit
     temp_commit = commit
-    for i in tqdm(range(len(work_list)), desc="commits"):
+    for i in tqdm(range(len(work_list)), desc=f"[{product}] commits"):
         if i == 0:
             continue
         commit_id = fullCommitList[work_list[i]]
@@ -183,11 +186,19 @@ def compare_file(project: Project, b_file: File, file: File):
 
 
 if __name__ == "__main__":
+    # PROJECT_LIST = ["AspectJ", "Eclipse_Platform_UI", "Birt", "JDT", "SWT", "Tomcat"]
+    # for p in PROJECT_LIST:
+    #     process = multiprocessing.Process(target=make_pkl, args=(p, f'cache/{p}/code', 600))
+    #     process.start()
 
-    make_pkl('AspectJ', 'cache/AspectJ/code', 2000)
+    p: Project = pickle.load(open('cache/JDT/JDT.pkl', 'rb'))
+    print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
+    for fileId in p.commits[p.bugs["28942"].bug_exist_version].current_files:
+        file = p.files[fileId]
+        if file.filename.find("org.eclipse.jdt.ui/core refactoring/org/eclipse/jdt/internal/corext/refactoring/code/ExtractMethodAnalyzer.java") != -1:
+            print(fileId, file.filename, len(file.method_list))
 
-#     p: Project = pickle.load(open('cache/AspectJ/AspectJ.pkl', 'rb'))
-#     print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
+    # p.getBuggyCodes()
     # print(p.commits.values())
     # for i in p.getBugIds():
     #     print(i, p.bugs[i].fixed_version)
