@@ -47,7 +47,9 @@ function activate(context) {
         });
     }));
     context.subscriptions.push(vscode.commands.registerCommand('buglocate.goToFile', (item) => {
-        openLocalFile(config.gitRepo + '/' + String(item.description));
+        if (item.collapsibleState !== vscode.TreeItemCollapsibleState.None) {
+            openLocalFile(config.gitRepo + '/' + String(item.description));
+        }
     }));
 }
 exports.activate = activate;
@@ -98,30 +100,52 @@ function openLocalFile(filePath) {
 class LocateResultProvider {
     constructor(result) {
         this.result = result;
+        this.resultList = JSON.parse(this.result);
+    }
+    getChildren(element) {
+        if (element) {
+            return Promise.resolve(getResultData(this.resultList[element.index]["methods"], "method"));
+        }
+        else {
+            return Promise.resolve(getResultData(this.resultList, "file"));
+        }
     }
     getTreeItem(element) {
         return element;
     }
-    getChildren(element) {
-        return Promise.resolve(getResultData(this.result));
-    }
 }
-function getResultData(result) {
-    const resultList = JSON.parse(result);
+function getResultData(resultList, type) {
+    // const resultList = JSON.parse(result);
+    console.log(resultList);
     let rl = new Array();
     for (let i = 0; i < resultList.length; i++) {
-        let a = new Result(String(resultList[i][0]).slice(0, 5), resultList[i][1], vscode.TreeItemCollapsibleState.None);
-        rl.push(a);
+        if (type === "file") {
+            let a = new Result(i, String(resultList[i]["score"]).slice(0, 5), resultList[i]["name"], vscode.TreeItemCollapsibleState.Collapsed, null, null);
+            rl.push(a);
+        }
+        else {
+            let a = new Result(i, String(resultList[i]["score"]).slice(0, 5), resultList[i]["name"], vscode.TreeItemCollapsibleState.None, resultList[i]["start"], resultList[i]["end"]);
+            rl.push(a);
+        }
     }
     return rl;
 }
 class Result extends vscode.TreeItem {
-    constructor(name, score, collapsibleState) {
-        super(name, collapsibleState);
-        this.name = name;
+    constructor(index, score, name, collapsibleState, start, end) {
+        super(score, collapsibleState);
+        this.index = index;
         this.score = score;
+        this.name = name;
         this.collapsibleState = collapsibleState;
-        this.description = this.score;
+        this.start = start;
+        this.end = end;
+        if (start === null || end === null) {
+            this.description = name;
+        }
+        else {
+            this.description = name + "  " + start[0] + "-" + end[0];
+        }
+        this.index = index;
     }
 }
 //# sourceMappingURL=extension.js.map

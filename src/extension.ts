@@ -45,7 +45,9 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	}));
 	context.subscriptions.push(vscode.commands.registerCommand('buglocate.goToFile',(item: vscode.TreeItem) => {
-		openLocalFile(config.gitRepo+'/'+String(item.description));
+		if(item.collapsibleState!==vscode.TreeItemCollapsibleState.None){
+			openLocalFile(config.gitRepo+'/'+String(item.description));
+		}
 	}));
 }
 
@@ -113,32 +115,56 @@ function openLocalFile(filePath: string) {
 
 class LocateResultProvider implements vscode.TreeDataProvider<Result> {
 	constructor(private result: string){}
+	resultList = JSON.parse(this.result);
+
+	getChildren(element?: Result): Thenable<Result[]> {
+		if(element){
+			return Promise.resolve(getResultData(this.resultList[element.index]["methods"], "method"));
+		}
+		else{
+			return Promise.resolve(getResultData(this.resultList,"file"));
+		}
+    }
 	getTreeItem(element: Result): vscode.TreeItem {
 	  return element;
 	}
   
-	getChildren(element?: Result): Thenable<Result[]> {
-		return Promise.resolve(getResultData(this.result));
-  }
+
 }
   
   
-function getResultData(result: string): Result[]{
-	const resultList = JSON.parse(result);
+function getResultData(resultList: any, type: string): Result[]{
+	// const resultList = JSON.parse(result);
+	console.log(resultList);
 	let rl :Result[] = new Array();
 	for (let i =0;i< resultList.length; i++){
-		let a = new Result(String(resultList[i][0]).slice(0,5), resultList[i][1], vscode.TreeItemCollapsibleState.None);
-		rl.push(a);
+		if(type==="file"){
+			let a = new Result(i, String(resultList[i]["score"]).slice(0,5), resultList[i]["name"], vscode.TreeItemCollapsibleState.Collapsed, null, null);
+			rl.push(a);
+
+		}else{
+			let a = new Result(i, String(resultList[i]["score"]).slice(0,5), resultList[i]["name"], vscode.TreeItemCollapsibleState.None, resultList[i]["start"], resultList[i]["end"]);
+			rl.push(a);
+		}
 	}
 	return rl;
 }
 class Result extends vscode.TreeItem {
 	constructor(
-	  public readonly name: string,
-	  private score: string,
-	  public readonly collapsibleState: vscode.TreeItemCollapsibleState
+	  public index: any,
+	  public readonly score: string,
+	  public name: string,
+	  public readonly collapsibleState: vscode.TreeItemCollapsibleState,
+	  public start: any,
+	  public end: any
 	) {
-	  super(name, collapsibleState);
-	  this.description = this.score;
+	  super(score, collapsibleState);
+	  if(start===null||end===null){
+		this.description = name;
+	  }else{
+		this.description = name+"  "+start[0]+"-"+end[0];
+	  }
+	  
+	  this.index = index;
 	}
   }

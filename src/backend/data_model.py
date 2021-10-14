@@ -169,6 +169,15 @@ class Project:
         method_list = [self.methods[i] for i in file.method_list]
         content =  [i for method in method_list for i in method.content]
         return content
+    
+
+    def getFileById(self, fileId):
+        file = self.files[fileId]
+        return file
+    
+    def getMethodById(self, methodId):
+        method = self.methods[methodId]
+        return method
 
 
     def getReportFilePairs(self, start=0, end=1, negative_example_num=-1, eval_num=-1):

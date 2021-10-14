@@ -42,7 +42,7 @@ public class AjMethodDeclaration extends MethodDeclaration {
 		if (attributes==null) attributes = new ArrayList();
 		attributes.add(eaa);
 	}
-	
+	addAttribute
 	/**
 	 * Overridden to add extra AJ stuff, also adds synthetic if boolean is true.
 	 */

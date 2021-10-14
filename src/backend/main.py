@@ -50,11 +50,11 @@ if __name__ == "__main__":
             make_pkl(args.product, args.gitRepo, args.maxDatasetSize)
         print('Built dataset !', end='')
     if args.doPredict:
-        from buglocate import predict
+        from buglocate import predict_M
         import time
         # print("doPredict")
         start = time.time()
-        result = predict(args.product, args.query)
+        result = predict_M(args.product, args.query)
         print(json.dumps(result), end='')
         end = time.time()
         # print(end-start)

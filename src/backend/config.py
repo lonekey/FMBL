@@ -24,6 +24,7 @@ max_m_l = 40
 dim = 300
 negative_f_num = 2
 negative_m_num = 20
+test_c = 300
 
 
 

@@ -38,20 +38,19 @@ def mergeScore(*scores):
     return score
 
 
-def rank(score, filenames, answer=None):
+def rank(score, filenames, num, answer=None):
     result = zip(score, filenames)
     result = sorted(result, key=lambda x: x[0], reverse=True)
     if answer is not None:
         for index, i in enumerate(result):
             if i[1] in answer:
                 print(index, i)
-    return result[:100]
+    return result[:num]
 
 
 def predict(product, query):
     p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
     cid = p.getLatestCommit()
-    # print(cid)
     # for bug in p.bugs.values():
     #     if cid in bug.fixed_version:
     #         query = bug.bug_summary+'\n'+bug.bug_description
@@ -59,7 +58,7 @@ def predict(product, query):
 
     query = clean_str(open(query).read())
     fids = p.getFileIdsByCommitId(cid)
-    files = [p.getFileContentById(i) for i in fids]
+    files = [p.getFileById(i) for i in fids]
     codes = []
     filenames = []
     code_path_len = len(f'cache/{product}/code/')
@@ -68,11 +67,13 @@ def predict(product, query):
         code = ""
         code += i.filename + '\n'
         for j in i.method_list:
+            j = p.getMethodById(j)
             code += str(j.content)
             code += str(j.comment)
         code = clean_code(code)
-        codes.append(code)
-    score_TFIDF = bl_TFIDF.compute(query, codes)
+        codes.append(' '.join(code).split(' '))
+    
+    score_TFIDF = bl_TFIDF.compute([query.split(' ')], codes)
     score_Length = bl_Length.compute(codes)
     score = mergeScore(score_TFIDF, score_Length)
     # answer= ["cache/AspectJ/code/weaver/src/org/aspectj/weaver/bcel/asm/StackMapAdder.java", "cache/AspectJ/code/org.aspectj.ajdt.core/src/org/aspectj/ajdt/internal/core/builder/AjState.java"]
@@ -80,8 +81,70 @@ def predict(product, query):
     return result
 
 
+def predict_M(product, query):
+    p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
+    cid = p.getLatestCommit()
+    # for bug in p.bugs.values():
+    #     if cid in bug.fixed_version:
+    #         query = bug.bug_summary+'\n'+bug.bug_description
+    #         break
+
+    query = clean_str(open(query).read())
+    fids = p.getFileIdsByCommitId(cid)
+    files = [p.getFileById(i) for i in fids]
+    codes_f, codes_m = [], []
+    # code_path_len = len(f'cache/{product}/code/')
+    mids = []
+    for i in files:
+        code_f = ""
+        code_f += i.filename + '\n'
+        for j in i.method_list:
+            mids.append(j)
+            code_m = ""
+            j = p.getMethodById(j)
+            code_f += str(j.content)
+            code_f += str(j.comment)
+            code_m += str(j.content)
+            code_m += str(j.comment)
+            code_m = clean_code(code_m)
+            codes_m.append(' '.join(code_m).split(' '))
+        code_f = clean_code(code_f)
+        codes_f.append(' '.join(code_f).split(' '))
+    # file score
+    score_TFIDF_f = bl_TFIDF.compute([query.split(' ')], codes_f)
+    score_Length_f = bl_Length.compute(codes_f)
+    score_f = mergeScore(score_TFIDF_f, score_Length_f)
+    result_f = rank(score_f, fids, 100)
+
+    # method score
+    score_TFIDF_m = bl_TFIDF.compute([query.split(' ')], codes_m)
+    score_Length_m = bl_Length.compute(codes_m)
+    score_m = mergeScore(score_TFIDF_m, score_Length_m)
+    result_m = rank(score_m, mids, 1000)
+
+    # optput
+    output={}
+    code_path_len = len(f'cache/{product}/code/')
+    for score, fid in result_f:
+        output[fid]={"score": score, "methods": []}
+    for score, mid in result_m:
+        fid = p.methods[mid].file
+        if fid not in output.keys():
+            continue
+        else:
+            output[fid]["methods"].append({"name": p.methods[mid].method_name,"score": score, "start":p.methods[mid].start, "end":p.methods[mid].end})
+    output_json = []
+    for k, v in output.items():
+        v["name"] = p.files[k].filename[code_path_len:]
+        output_json.append(v)
+    return output_json[:20]
+
+
+
+
 if __name__ == "__main__":
     start = time.time()
-    predict('AspectJ', '123')
+    output = predict_M('AspectJ', 'queryfile.txt')
+    print(output)
     end = time.time()
     print(end - start)
