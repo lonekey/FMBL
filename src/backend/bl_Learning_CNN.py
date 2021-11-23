@@ -123,7 +123,7 @@ def train(model, train_data, eval_data, W, device, level, config: Config):
                 model_to_save = model.module if hasattr(model, 'module') else model
                 output_dir = os.path.join(output_dir, '{}'.format('model.bin'))
                 torch.save(model_to_save.state_dict(), output_dir)
-                log("Saving model checkpoint to ", output_dir)
+                log(f"Saving model checkpoint to {output_dir}")
 
 
 def evaluate(model, eval_data, W, device, batch_size):
@@ -179,6 +179,7 @@ def compute_tric(bids, cids, scores, labels):
             result[bids[i]] = [(cids[i], scores[i], labels[i])]
         else:
             result[bids[i]].append((cids[i], scores[i], labels[i]))
+    # print(result)
     bug_num = len(result.keys())
     for k, v in result.items():
         v.sort(key=lambda x: x[1], reverse=True)
@@ -193,6 +194,7 @@ def compute_tric(bids, cids, scores, labels):
                         if index < 1:
                             count_1 += 1
                 break
+    # print(bug_num, count_1, count_5, count_10)
     MRR = MRR / bug_num
     top_1 = count_1 / bug_num
     top_5 = count_5 / bug_num
