@@ -2,11 +2,11 @@ import numpy as np
 import pickle
 from collections import defaultdict
 from utils.preprocess import clean_code, clean_str
-from tqdm import tqdm
 import gensim
 from data_model import Project
 import random
-import config
+from config import Config
+from utils.log import log
 
 
 def load_bin_vec(filename, vocab):
@@ -30,7 +30,15 @@ def add_unknown_words(word_vecs, vocab, min_df=1, k=300):
             count += 1
 
 
-def getIdxfrom_sent(sent, word_idx_map, code_maxk):
+# for code
+def getIdxfrom_sent(sent: str, word_idx_map, code_maxk):
+    """
+
+    :param sent: String , a line of code
+    :param word_idx_map:
+    :param code_maxk:
+    :return:
+    """
     x = []
     #    pad = filter_h - 1
     #    for i in xrange(pad):
@@ -48,6 +56,7 @@ def getIdxfrom_sent(sent, word_idx_map, code_maxk):
     return x
 
 
+# for report
 def getIdxfrom_sent_n(sent, max_l, word_idx_map, filter_h=5):
     x = []
     pad = filter_h - 1
@@ -77,6 +86,7 @@ def get_W(word_vecs, k=300):
     return W, word_idx_map, idx_word_map
 
 
+# for code
 def alignData(data, code_maxl):
     mm = data.shape[0]
     nn = data.shape[1]
@@ -93,12 +103,12 @@ def makeVocab(_file_path, _w2v_file):
     vocab = defaultdict(float)
     p: Project = pickle.load(open(_file_path, 'rb'))
     if not hasattr(p, "processed"):
-        for method in tqdm(p.methods.values(), desc='methods'):
+        for method in p.methods.values():
             method.content = clean_code(method.content)
             for line in method.content:
                 for word in line.split():
                     vocab[word] += 1
-        for bug in tqdm(p.bugs.values(), desc='bugs'):
+        for bug in p.bugs.values():
             bug.bug_description = clean_str(bug.bug_description)
             bug.bug_summary = clean_str(bug.bug_summary)
             bug.bug_comments = ' '.join([clean_str(comment['comment']) for comment in bug.bug_comments])
@@ -108,7 +118,7 @@ def makeVocab(_file_path, _w2v_file):
                 words = set(text.split())
                 for word in words:
                     vocab[word] += 1
-        print(len(vocab))
+        log(f"vocab size : {len(vocab)}")
         w2v = load_bin_vec(_w2v_file, vocab)
         add_unknown_words(w2v, vocab)
         W, word_idx_map, idx_word_map = get_W(w2v)
@@ -119,53 +129,49 @@ def makeVocab(_file_path, _w2v_file):
         pickle.dump(p, open(_file_path, "wb"))
     return p
 
-def load_data(file_path, config, for_train=False, for_eval=False, for_test=False, for_file=False, for_method=False, w2v_file=None):
 
+# 选择数据，根据条件生成需要的数据格式
+def load_data(file_path, config: Config, for_train=False, for_eval=False, for_test=False, for_file=False,
+              for_method=False, w2v_file=None):
     p = makeVocab(file_path, w2v_file)
     _train_data_file, _eval_data_file = [], []
     _train_data_method, _eval_data_method = [], []
     if for_file:
         if for_train:
-            for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(end=0.8, negative_example_num=config.negative_f_num), desc="for train"):
-                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
-                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+            for _bid, _cid, _report, _code, _label in p.getReportFilePairs(end=0.8,
+                                                                           negative_example_num=config.negative_f_num):
+                _report = np.array(getIdxfrom_sent_n(_report, config.maxQueryLength, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in _code])
                 if _code.shape[0] == 0:
                     continue
-                _code = alignData(_code, config.max_f_l)
+                _code = alignData(_code, config.maxFileLine)
                 _train_data_file.append((_bid, _cid, _report, _code, _label))
         if for_eval:
-            for _bid, _cid, _report, _code, _label in tqdm(p.getReportFilePairs(start=0.8, eval_num=config.test_c), desc="for eval"):
-                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
-                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+            for _bid, _cid, _report, _code, _label in p.getReportFilePairs(start=0.8, eval_num=config.test_c):
+                _report = np.array(getIdxfrom_sent_n(_report, config.maxQueryLength, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in _code])
                 if _code.shape[0] == 0:
                     continue
-                _code = alignData(_code, config.max_f_l)
+                _code = alignData(_code, config.maxFileLine)
                 _eval_data_file.append((_bid, _cid, _report, _code, _label))
+
     if for_method:
         if for_train:
-            for _bid, _cid, _report, _code, _label in tqdm(p.getReportMethodPairs(end=0.8, negative_example_num=config.negative_m_num), desc="for train"):
-                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
-                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+            for _bid, _cid, _report, _code, _label in p.getReportMethodPairs(end=0.8,
+                                                                             negative_example_num=config.negative_m_num):
+                _report = np.array(getIdxfrom_sent_n(_report, config.maxQueryLength, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in _code])
                 if _code.shape[0] == 0:
                     continue
-                _code = alignData(_code, config.max_m_l)
+                _code = alignData(_code, config.maxFuncLine)
                 _train_data_method.append((_bid, _cid, _report, _code, _label))
-            # for eval
-        # _bid, _cid, _report, _code, _label = zip(*_eval_data_file)
-        # bug_file_map = dict()
-        # for i in range(len(_bid)):
-        #     if _bid[i] in bug_file_map.keys():
-        #         bug_file_map[_bid[i]].append(_cid[i])
-        #     else:
-        #         bug_file_map[_bid[i]] = [_cid[i]]
-        # print(bug_file_map.keys())
         if for_eval:
-            for _bid, _cid, _report, _code, _label in tqdm(p.getReportMethodPairs(start=0.8), desc="for eval"):
-                _report = np.array(getIdxfrom_sent_n(_report, config.max_r_len, p.word_idx_map, filter_h=5))
-                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.max_c_k) for i in _code])
+            for _bid, _cid, _report, _code, _label in p.getReportMethodPairs(start=0.8):
+                _report = np.array(getIdxfrom_sent_n(_report, config.maxQueryLength, p.word_idx_map, filter_h=5))
+                _code = np.array([getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in _code])
                 if _code.shape[0] == 0:
                     continue
-                _code = alignData(_code, config.max_m_l)
+                _code = alignData(_code, config.maxFuncLine)
                 _eval_data_method.append((_bid, _cid, _report, _code, _label))
     random.shuffle(_train_data_file)
     random.shuffle(_train_data_method)
@@ -174,26 +180,6 @@ def load_data(file_path, config, for_train=False, for_eval=False, for_test=False
     data["file_eval"] = _eval_data_file
     data["method_train"] = _train_data_method
     data["method_eval"] = _eval_data_method
-    print("Finish loading")
+    log("Finish loading")
     return data, p.W, p.word_idx_map, p.idx_word_map
-
-
-if __name__ == "__main__":
-    PROJECT_LIST = ["AspectJ", "Eclipse_Platform_UI", "Birt", "JDT", "Tomcat"]
-    w2v_file = "GoogleNews-vectors-negative300.bin"
-    for p in PROJECT_LIST:
-        file_path = f"cache/{p}/{p}.pkl"
-        data, W, word_idx_map, idx_word_map= load_data(file_path, config, w2v_file=w2v_file, for_train=True, for_file=True, for_eval=True)
-
-        print("Finish processing!")
-
-    # train_data_file, eval_data_file, train_data_method, eval_data_method, W, word_idx_map, idx_word_map = pickle.load(open("cache/AspectJ/parameters.in", "rb"))
-    
-    # print(W.shape)
-    # for data in [train_data_file, eval_data_file, train_data_method, eval_data_method]:
-    #     bid, cid, report, code, label = zip(*data)
-    #     print(len(bid), len(cid), len(label))
-    #     bid, cid, report, code, label = data[0]
-    #     print(report.shape, code.shape)
-
 

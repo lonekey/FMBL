@@ -12,7 +12,7 @@ import pandas as pd
 import subprocess
 import re
 import datetime
-
+from utils.log import log
 lock = threading.Lock()
 
 
@@ -44,7 +44,7 @@ class myThread(threading.Thread):
             self.bug_info_list.append(bug_info)
             lock.release()
         except Exception:
-            print(f"error")
+            log(f"error")
 
 
 def get_bug_info(content):
@@ -156,7 +156,7 @@ def collect_git_log(product, productGitPath):
         if i.find("commit") != -1:
             if 'commit' in tmp.keys():
                 commit_log.append(tmp)
-            # print(tmp["descripton"])
+            # log(tmp["descripton"])
             tmp = {"description": ""}
             tmp["commit"] = i.split(' ')[1]
         if i.find("Author") != -1:
@@ -196,7 +196,7 @@ def matchRC(product):
             bug_repo[item['id']] = item
     json.dump(bug_repo, open(f'cache/{product}/bug_repo.json', 'w', encoding='utf-8'))
     # for i in bug_repo:
-    #     print(i['fixCommit'])
+    #     log(i['fixCommit'])
         
 
 
@@ -204,14 +204,14 @@ def matchRC(product):
 # match('AspectJ')
 # bug_repo = json.load(open('cache/AspectJ/bug_repo.json', encoding='utf-8'))
 # for i in bug_repo:
-#     print(i['fixCommit'])
+#     log(i['fixCommit'])
 
 # collect_bug_report('Platform', 'https://bugs.eclipse.org/bugs')
 
 def getBugID():
     website = "https://bz.apache.org/"
     for filename in os.listdir('cache/exp_data'):
-        print(filename)
+        log(filename)
         save_path = f'cache/{filename[:-4]}'
         issues_path = f'cache/{filename[:-4]}/issues'
         os.makedirs(issues_path, exist_ok=True)
@@ -244,7 +244,7 @@ def getBugID():
 
         bug_repos = json.load(open(f'cache/{filename[:-4]}/bug_repo.json', 'r'))
         bug_reports = json.load(open(f'cache/{filename[:-4]}/bug_report.json', 'r'))
-        print(len(bug_ids), len(bug_reports), len(bug_repos))
+        log(len(bug_ids), len(bug_reports), len(bug_repos))
         # bug_links = {}
         # for bug_id in bug_ids:
         #     bug_links[bug_id] = "show_bug.cgi?id="+bug_id
@@ -263,6 +263,6 @@ def getBugID():
         #     json.dump(bug_info_list, f)
         #     f.close()
         # return
-getBugID()
+# getBugID()
 # collect_git_log('Tomcat', 'E:\\buglocate\src\\backend\\cache\\Tomcat\\code')
 # matchRC('Tomcat')

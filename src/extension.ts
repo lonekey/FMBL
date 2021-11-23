@@ -3,42 +3,60 @@
 import * as vscode from 'vscode';
 import * as cmd from 'child_process';
 import * as fs from 'fs';
+import { download } from 'vscode-test';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 	const config  = new Config(vscode.workspace.getConfiguration('buglocate'));
 	console.log(config);
+	const configString = JSON.stringify(config);
+	fs.writeFile(config.workpath+'/config.json', configString , (error) => {
+		if (error !== null){				
+			console.log(error);
+		}
+	});
+	// console.log(configString);
 	// console.log(vscode.workspace.getConfiguration('buglocate').get('project.name'));
-
+	// downloadExe();
 	context.subscriptions.push(vscode.commands.registerCommand('buglocate.init', () => {
 		vscode.window.showInformationMessage('[buglocate] Start prepare for buglocate...');
-		cmd.exec('.\\main.exe --doCollect --bugRepo '+config.bugRepo+' --product '+config.product+' --gitRepo '+config.gitRepo, {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
+		cmd.exec('.\\main.exe --doCollect', {cwd:config.workpath}, (error, stdout, stderr) => {
 			console.log(stdout, stderr);
 			// console.log(stderr);
 			// vscode.window.showInformationMessage('[buglocate] Collect finished.');
-			cmd.exec('.\\main.exe --doMatch --bugRepo '+config.bugRepo+' --product '+config.product+' --gitRepo '+config.gitRepo, {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
+			cmd.exec('.\\main.exe --doMatch', {cwd:config.workpath}, (error, stdout, stderr) => {
 				console.log(stdout, stderr);
 				// console.log(stderr);
 				// vscode.window.showInformationMessage('[buglocate] Match finished.');
-				cmd.exec('.\\main.exe --doMakeDataset --product '+config.product+' --gitRepo '+config.gitRepo+' --maxDatasetSize '+config.maxDatasetSize, {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
+				cmd.exec('.\\main.exe --doMakeDataset', {cwd:config.workpath}, (error, stdout, stderr) => {
 					console.log(stdout, stderr);
-					vscode.window.showInformationMessage('[buglocate] All done.');
+					if(config.useLearning){
+						cmd.exec('.\\main.exe --doTrain', {cwd:config.workpath}, (error, stdout, stderr) => {
+							console.log(stdout, stderr);
+							vscode.window.showInformationMessage('[buglocate] All done.');
+						});
+					}else{
+						vscode.window.showInformationMessage('[buglocate] All done.');
+					}
 				});
 			});
 		});
 	}));
 	vscode.commands.executeCommand('buglocate.init');
+
 	context.subscriptions.push(vscode.commands.registerTextEditorCommand('buglocate.search', (textEditor) => {
+		vscode.window.setStatusBarMessage('locating...');
 		const query = getSelectedText(textEditor);
-		fs.writeFile('E:/buglocate/src/backend/dist/queryfile.txt', query , (error) => {
+		fs.writeFile(config.workpath+'/queryfile.txt', query , (error) => {
 			if (error !== null){				
 				console.log(error);
 			}
 		});
-		cmd.exec('.\\main.exe --doPredict --product "AspectJ" --query "queryfile.txt"', {cwd:'E:\\buglocate\\src\\backend\\dist'}, (error, stdout, stderr) => {
+		cmd.exec('.\\main.exe --doPredict --query "queryfile.txt"', {cwd:config.workpath}, (error, stdout, stderr) => {
 			if (stderr !== null){				
 				console.log(stderr);
 			}
+			vscode.window.setStatusBarMessage('');
 			vscode.window.createTreeView('bugLocateResult', {
 				treeDataProvider: new LocateResultProvider(stdout)
 			  });
@@ -54,8 +72,15 @@ export function activate(context: vscode.ExtensionContext) {
 // this method is called when your extension is deactivated
 export function deactivate() {}
 
+function saveConfig(config: Config){
+	console.log(JSON.stringify(config));
+
+
+}
+
 
 class Config{
+	workpath: any;
 	product: any;
 	bugRepo: any;
 	gitRepo: any;
@@ -69,8 +94,15 @@ class Config{
 	useLearning: any;
 	file: any;
 	function: any;
+	learningRate: any;
+	batchSize: any;
+	epoch: any;
+	negFileNum: any;
+	negMethodNum: any;
+
 
 	constructor(configuration: vscode.WorkspaceConfiguration){
+		this.workpath = configuration.get('workpath');
 		// project
 		this.product = configuration.get('project.name');
 		this.bugRepo = configuration.get('project.bugRepo');
@@ -89,6 +121,12 @@ class Config{
 		// level
 		this.file = configuration.get('level.file');
 		this.function = configuration.get('level.function');
+		//train
+		this.learningRate = configuration.get('train.learningRate');
+		this.batchSize = configuration.get('train.batchSize');
+		this.epoch = configuration.get('train.epoch');
+		this.negFileNum = configuration.get('train.negFileNum');
+		this.negMethodNum = configuration.get('train.negMethodNum');
 	}
 }
 

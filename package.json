@@ -2,7 +2,10 @@
 	"name": "buglocate",
 	"displayName": "buglocate",
 	"description": "A tool to find bugs!",
-	"version": "0.0.1",
+	"version": "0.0.2",
+	"repository": {
+		"url": "https://gitee.com/lonekey/buglocate"
+	},
 	"publisher": "YZU-zhucheng",
 	"engines": {
 		"vscode": "^1.58.0"
@@ -19,6 +22,11 @@
 			"type": "object",
 			"title": "buglocate",
 			"properties": {
+				"buglocate.workpath":{
+					"type": "string",
+					"default": "E:\\buglocate\\src\\backend\\dist",
+					"description": "work path for buglocate"
+				},
 				"buglocate.project.name": {
 					"type": "string",
 					"default": "AspectJ",
@@ -36,12 +44,12 @@
 				},
 				"buglocate.dataset.maxDatasetSize": {
 					"type": "number",
-					"default": 100,
+					"default": 300,
 					"description": "Max history bug per batch."
 				},
 				"buglocate.dataset.maxQueryLength": {
 					"type": "number",
-					"default": 100,
+					"default": 500,
 					"description": "Max query length."
 				},
 				"buglocate.dataset.maxCodeK": {
@@ -83,13 +91,34 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Provide the function level result."
+				},
+				"buglocate.train.learningRate":{
+					"type":"number",
+					"default": 0.01
+				},
+				"buglocate.train.batchSize":{
+					"type":"number",
+					"default": 4
+				},
+				"buglocate.train.epoch":{
+					"type":"number",
+					"default": 40
+				},
+				"buglocate.train.negFileNum":{
+					"type":"number",
+					"default": 5
+				},
+				"buglocate.train.negMethodNum":{
+					"type":"number",
+					"default": 30
 				}
+
 			}
 		},
 		"commands": [
 			{
 				"command": "buglocate.search",
-				"title": "查找缺陷位置"
+				"title": "Buglocate"
 			},
 			{
 				"command": "buglocate.init",
@@ -97,7 +126,7 @@
 			},
 			{
 				"command": "buglocate.goToFile",
-				"title": "转到文件"
+				"title": "open"
 			}
 		],
 		"menus": {

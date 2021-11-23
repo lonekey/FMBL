@@ -17,6 +17,7 @@ import time
 import copy
 from tqdm import tqdm
 from shutil import copytree
+from utils.log import log
 import multiprocessing
 
 
@@ -29,11 +30,11 @@ def add_change(code_path, project: Project, prior_commit: Commit, this_commit: C
     file_add_list = diff(code_path, prior_commit.commit_id, this_commit.commit_id, "A")
     file_modified_list = diff(code_path, prior_commit.commit_id, this_commit.commit_id, "M")
     file_del_list = diff(code_path, prior_commit.commit_id, this_commit.commit_id, "D")
-    # print('A', len(file_add_list), end='\t\t')
-    # print('M', len(file_modified_list), end='\t\t')
-    # print('D', len(file_del_list))
+    # log('A', len(file_add_list), end='\t\t')
+    # log('M', len(file_modified_list), end='\t\t')
+    # log('D', len(file_del_list))
     this_commit.current_files = copy.deepcopy(prior_commit.current_files)
-    # print(len(this_commit.current_files))
+    # log(len(this_commit.current_files))
 
     for delete_file in file_del_list:
         for b_file_id in this_commit.current_files.copy():
@@ -65,7 +66,7 @@ def add_change(code_path, project: Project, prior_commit: Commit, this_commit: C
                 break
 
 
-    # print(len(this_commit.current_files))
+    # log(len(this_commit.current_files))
     return this_commit
 
 
@@ -77,35 +78,41 @@ def get_description_by_bug_id(project: str, bug_id: str):
     return str(bug_description)
 
 
-def make_pkl(product, raw_project_path, max_dataset_size):
+def make_pkl(product, raw_project_path, max_dataset_size, hasBugRepo):
     project = Project(product)
-    bls = json.load(open(f"cache/{product}/bug_repo.json", 'r'))
-    commitList = []
-    for item in bls.values():
-        for commit_id, commit_time in item['fixCommit'].items():
-            commitList.append((commit_id, item['id'], commit_time))
-    max_dataset_size = int(max_dataset_size)
-    max_dataset_size = min(max_dataset_size, len(commitList))
-    print(f"total fix commit {len(commitList)}, use {max_dataset_size}")
-    commitList = sorted(commitList, key= lambda x: x[2])[:max_dataset_size]
-    commitIdList,_,_ = zip(*commitList)
-    gl = pd.read_csv(open(f'cache/{product}/git_log.csv', encoding='utf-8'))
+
+    gl = pd.read_csv(open(f'cache/{product}/git_log.csv', encoding='utf-8'), keep_default_na=False)
     gl = gl.sort_values(by=['Date'])
     fullCommitList = gl.commit.tolist()
     fullDateList = gl.Date.tolist()
-
     work_list = []
-    for i in range(len(fullCommitList)):
-        if fullCommitList[i] in commitIdList or i + 1 < len(fullCommitList) and fullCommitList[i + 1] in commitIdList:
-            work_list.append(i)
+    if hasBugRepo:
+        bls = json.load(open(f"cache/{product}/bug_repo.json", 'r'))
+        commitList = []
+        for item in bls.values():
+            for commit_id, commit_time in item['fixCommit'].items():
+                commitList.append((commit_id, item['id'], commit_time))
+        max_dataset_size = int(max_dataset_size)
+        max_dataset_size = min(max_dataset_size, len(commitList))
+        log(f"total fix commit {len(commitList)}, use {max_dataset_size}")
+        commitList = sorted(commitList, key= lambda x: x[2])[:max_dataset_size]
+        commitIdList,_,_ = zip(*commitList)
+
+        for i in range(len(fullCommitList)):
+            if fullCommitList[i] in commitIdList or i + 1 < len(fullCommitList) and fullCommitList[i + 1] in commitIdList:
+                work_list.append(i)
+    else:
+        work_list.append(len(fullCommitList)-1)
 
     # first commit
     commit_id = fullCommitList[work_list[0]]
     commit_date = fullDateList[work_list[0]]
-    # print(commit_id)
+
     code_path = f'cache/{product}/code'
     if not os.path.exists(code_path):
+        log('copying...')
         copytree(raw_project_path, code_path)
+    log('checking to', commit_id)
     checkout_this(code_path, commit_id)
 
     commit = Commit(commit_id, commit_date)
@@ -120,34 +127,33 @@ def make_pkl(product, raw_project_path, max_dataset_size):
             thread_list.pop()
         else:
             time.sleep(1)
-    
     project.commits[commit_id] = commit
-    temp_commit = commit
-    for i in tqdm(range(len(work_list)), desc=f"[{product}] commits"):
-        if i == 0:
-            continue
-        commit_id = fullCommitList[work_list[i]]
-        checkout_this(code_path, commit_id)
-        commit_date = fullDateList[work_list[i]]
-        commit = Commit(commit_id, commit_date)
-        commit = add_change(code_path, project, temp_commit, commit)
-        project.commits[commit.commit_id] = commit
-        for k, v in bls.items():
-            if commit_id in v["fixCommit"].keys():
-                if k not in project.bugs.keys():
-                    new_bug = Bug(k, temp_commit.commit_id, commit.commit_id, v["summary"], v["description"]["comment"], v["comments"])
-                else:
-                    new_bug = project.bugs[k]
-                    new_bug.fixed_version.append(commit.commit_id)
-                project.bugs[v["id"]] = new_bug
-                break
+    # End first commit
+    if hasBugRepo:
+        bls = json.load(open(f"cache/{product}/bug_repo.json", 'r'))
         temp_commit = commit
+        for i in tqdm(range(len(work_list)), desc=f"[{product}] commits"):
+            if i == 0:
+                continue
+            commit_id = fullCommitList[work_list[i]]
+            checkout_this(code_path, commit_id)
+            commit_date = fullDateList[work_list[i]]
+            commit = Commit(commit_id, commit_date)
+            commit = add_change(code_path, project, temp_commit, commit)
+            project.commits[commit.commit_id] = commit
+            for k, v in bls.items():
+                if commit_id in v["fixCommit"].keys():
+                    if k not in project.bugs.keys():
+                        new_bug = Bug(k, temp_commit.commit_id, commit.commit_id, v["summary"], v["description"]["comment"], v["comments"])
+                    else:
+                        new_bug = project.bugs[k]
+                        new_bug.fixed_version.append(commit.commit_id)
+                    project.bugs[v["id"]] = new_bug
+                    break
+            temp_commit = commit
     with open(f"cache/{product}/{product}.pkl", 'wb') as f1:
         pickle.dump(project, f1, protocol=4)
     f1.close()
-
-
-
 
 
 class myThread(threading.Thread):
@@ -163,7 +169,6 @@ class myThread(threading.Thread):
         self.project.files[file.id] = file
         self.commit.current_files.add(file.id)
         lock.release()
-
 
 
 def compare_file(project: Project, b_file: File, file: File):
@@ -191,18 +196,20 @@ if __name__ == "__main__":
     #     process = multiprocessing.Process(target=make_pkl, args=(p, f'cache/{p}/code', 600))
     #     process.start()
 
-    p: Project = pickle.load(open('cache/JDT/JDT.pkl', 'rb'))
-    print(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
-    for fileId in p.commits[p.bugs["28942"].bug_exist_version].current_files:
-        file = p.files[fileId]
-        if file.filename.find("org.eclipse.jdt.ui/core refactoring/org/eclipse/jdt/internal/corext/refactoring/code/ExtractMethodAnalyzer.java") != -1:
-            print(fileId, file.filename, len(file.method_list))
+    p: Project = pickle.load(open('cache/platform/platform.pkl', 'rb'))
+    log(len(p.files), len(p.methods), len(p.commits), len(p.bugs))
+    for f in p.files.values():
+        log(f.filename)
+    # for fileId in p.commits[p.bugs["28942"].bug_exist_version].current_files:
+    #     file = p.files[fileId]
+    #     if file.filename.find("org.eclipse.jdt.ui/core refactoring/org/eclipse/jdt/internal/corext/refactoring/code/ExtractMethodAnalyzer.java") != -1:
+    #         log(fileId, file.filename, len(file.method_list))
 
     # p.getBuggyCodes()
-    # print(p.commits.values())
+    # log(p.commits.values())
     # for i in p.getBugIds():
-    #     print(i, p.bugs[i].fixed_version)
-    # print(p.bugs.keys())
+    #     log(i, p.bugs[i].fixed_version)
+    # log(p.bugs.keys())
     # a = p.getChangedFilesByBugID('391123')
     # for i in a:
-    #     print(i)
+    #     log(i)

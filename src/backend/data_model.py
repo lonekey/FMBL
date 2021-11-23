@@ -6,7 +6,7 @@ from typing import Dict
 from utils.java_parse import get_method, java_to_json
 import uuid
 import random
-from tqdm import tqdm
+from utils.log import log
 from utils import preprocess
 
 def split_description(filename):
@@ -63,7 +63,7 @@ class Bug:
         self.bug_summary = bug_summary
         self.bug_description = bug_description
         self.bug_comments = bug_comments
-        # print(f"bug {bug_id} finished")
+        # log(f"bug {bug_id} finished")
 
     def __repr__(self):
         return f"{self.bug_id}"
@@ -85,7 +85,7 @@ class File:
             if lock is not None:
                 lock.release()
             self.method_list.append(method.id)
-        # print(f"create a file! {file_id} {filename}")
+        # log(f"create a file! {filename}")
 
     def __repr__(self):
         return f"{self.filename}"
@@ -113,6 +113,9 @@ class Project:
         self.bugs: Dict[str, Bug] = {}
         self.files: Dict[uuid.UUID, File] = {}
         self.methods: Dict[uuid.UUID, Method] = {}
+        self.word_idx_map = None
+        self.idx_word_map = None
+        self.W = None
 
     def __repr__(self):
         return f"{self.project_name}"
@@ -185,6 +188,7 @@ class Project:
 
         :return: bid, cid, report, code, label
         """
+        # log("negative_example_num")
         bug_num = len(self.bugs.keys())
         start = int(start*bug_num)
         end = int(end*bug_num)
@@ -192,7 +196,7 @@ class Project:
             allFiles = self.getFileIdsByCommitId(bug.bug_exist_version) # id
             buggyFiles = self.getChangedFilesByBugID(bugID)
             
-            # print(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
+            # log(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
             for _, f in buggyFiles:
                 if f.id in allFiles:
                     allFiles.remove(f.id)
@@ -201,7 +205,7 @@ class Project:
                 yield bugID, f.id, report, preprocess.clean_code(f.filename)+self.getFileContentById(f.id), 1
             if negative_example_num == -1 or eval_num==-1:
                 # randomSelectedMethods = random.sample(allFiles, len(buggyFiles))
-                randomSelectedMethods =allFiles
+                randomSelectedMethods = allFiles
             if negative_example_num != -1:
                 randomSelectedMethods = random.sample(allFiles, int(negative_example_num*len(buggyFiles)))
             if eval_num != -1:
@@ -220,7 +224,7 @@ class Project:
         for bugID, bug in [i for i in self.bugs.items()][start:end]:
             allMethods = self.getMethodIdsByCommitId(bug.bug_exist_version)
             buggyMethods = self.getChangedMethodsByBugID(bugID)
-            # print(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
+            # log(len(allMethods), allMethods[0], [i.id for i in buggyMethods])
             for m in buggyMethods:
                 if m.id in allMethods:
                     allMethods.remove(m.id)
@@ -244,26 +248,26 @@ class Project:
         :return: bid, cid, report, code, label
         """
         for bugID, bug in self.bugs.items():
-            print(bug.bug_id)
+            log(bug.bug_id)
             buggyMethods = self.getChangedMethodsByBugID(bugID)
             buggyFiles = self.getChangedFilesByBugID(bugID)
             for mode, f in buggyFiles:
-                print(mode, f.filename)
+                log(mode, f.filename)
                 for m in f.method_list:
                     for m1 in buggyMethods:
                         if m == m1.id:
-                            print(self.files[m1.file].filename, m1.method_name)
+                            log(self.files[m1.file].filename, m1.method_name)
                             buggyMethods.remove(m1)
                             break
-            print("untracked methods: ", [(self.files[i.file].filename, i.method_name) for i in buggyMethods])
+            log("untracked methods: ", [(self.files[i.file].filename, i.method_name) for i in buggyMethods])
                     
 
 
 if __name__ == "__main__":
-    print(uuid.uuid1())
+    log(uuid.uuid1())
 
     # description, code = split_description("BrowserManager.java")
-    # print(description)
-    # print(code)
+    # log(description)
+    # log(code)
     # rf = java_to_json(code, 0, 0)
-    # fl = rf["method_list"]    # print(fl)
+    # fl = rf["method_list"]    # log(fl)

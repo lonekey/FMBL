@@ -1,23 +1,23 @@
 # coding: UTF-8
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import RobertaModel
+# from transformers import RobertaModel
 import torch
 
 
-class RCModel(nn.Module):
-    def __init__(self, pretrained_path):
-        super(RCModel, self).__init__()
-        self.codebert = RobertaModel.from_pretrained(pretrained_path)
-        self.f1 = nn.Sequential(
-            nn.Linear(768, 2),
-            nn.Softmax(1)
-        )
-
-    def forward(self, sentence):
-        cls = self.codebert(sentence)[1]
-        output = self.f1(cls)
-        return output
+# class RCModel(nn.Module):
+#     def __init__(self, pretrained_path):
+#         super(RCModel, self).__init__()
+#         self.codebert = RobertaModel.from_pretrained(pretrained_path)
+#         self.f1 = nn.Sequential(
+#             nn.Linear(768, 2),
+#             nn.Softmax(1)
+#         )
+#
+#     def forward(self, sentence):
+#         cls = self.codebert(sentence)[1]
+#         output = self.f1(cls)
+#         return output
 
 
 class RCModel_CNN(nn.Module):
@@ -66,7 +66,7 @@ class RCModel_CNN(nn.Module):
         # print(11, code.shape)
 
         # report 1024*100*128
-        report = report.view(-1, 1, self.config.max_r_len+8, self.config.dim)
+        report = report.view(-1, 1, self.config.maxQueryLength+8, self.config.dim)
         report = [F.relu(conv(report)) for conv in self.convs3]
         # 1024*100*97*1
         report = [F.max_pool2d(input=r_item, kernel_size=(r_item.size()[2], r_item.size()[3])) for r_item in report]

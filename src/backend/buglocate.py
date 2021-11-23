@@ -3,10 +3,13 @@ from data_model import Project
 from utils.file import getFileList
 from utils.preprocess import clean_code, clean_str
 import time
+import process_cv2
+from config import Config
 import bl_TFIDF
 import bl_Length
 import numpy as np
-
+import os
+from utils.log import log
 """
 git log -1 -> commit
 
@@ -27,8 +30,8 @@ def checkFile(product, raw_project_path):
     repo_file_list = getNewestCommit(product)
     for f in file_list:
         if f not in repo_file_list:
-            print(f)
-    print(len(file_list), len(repo_file_list))
+            log(f)
+    log(len(file_list), len(repo_file_list))
 
 
 def mergeScore(*scores):
@@ -44,12 +47,13 @@ def rank(score, filenames, num, answer=None):
     if answer is not None:
         for index, i in enumerate(result):
             if i[1] in answer:
-                print(index, i)
+                log(index, i)
     return result[:num]
 
 
 def predict(product, query):
     p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
+
     cid = p.getLatestCommit()
     # for bug in p.bugs.values():
     #     if cid in bug.fixed_version:
@@ -81,8 +85,14 @@ def predict(product, query):
     return result
 
 
-def predict_M(product, query):
-    p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
+def predict_M(config: Config, query):
+    # start = time.time()
+    score_TFIDF_f, score_Length_f, score_Learning_f, score_TFIDF_m, score_Length_m, score_Learning_m = [], [], [], [], [], []
+    p: Project = pickle.load(open(f'{config.output_dir}/{config.product}/{config.product}.pkl', 'rb'))
+    # log(p.word_idx_map)
+    # end = time.time()
+    # log("读取时间", end-start)
+    # start = time.time()
     cid = p.getLatestCommit()
     # for bug in p.bugs.values():
     #     if cid in bug.fixed_version:
@@ -90,41 +100,82 @@ def predict_M(product, query):
     #         break
 
     query = clean_str(open(query).read())
-    fids = p.getFileIdsByCommitId(cid)
-    files = [p.getFileById(i) for i in fids]
-    codes_f, codes_m = [], []
-    # code_path_len = len(f'cache/{product}/code/')
-    mids = []
-    for i in files:
-        code_f = ""
-        code_f += i.filename + '\n'
-        for j in i.method_list:
-            mids.append(j)
-            code_m = ""
-            j = p.getMethodById(j)
-            code_f += str(j.content)
-            code_f += str(j.comment)
-            code_m += str(j.content)
-            code_m += str(j.comment)
-            code_m = clean_code(code_m)
-            codes_m.append(' '.join(code_m).split(' '))
-        code_f = clean_code(code_f)
-        codes_f.append(' '.join(code_f).split(' '))
+    query_idx = process_cv2.getIdxfrom_sent_n(query, config.maxQueryLength, p.word_idx_map, filter_h=5)
+    query = [query.split(' ')]
+    current_version = f'{config.output_dir}/{config.product}/commit_{cid}.pkl'
+    if not os.path.exists(current_version):
+        fids = p.getFileIdsByCommitId(cid)
+        files = [p.getFileById(i) for i in fids]
+        codes_f, codes_m = [], []
+        # code_path_len = len(f'cache/{product}/code/')
+        mids = []
+        for i in files:
+            code_f = [clean_str(i.filename)]
+            for j in i.method_list:
+                mids.append(j)
+                j = p.getMethodById(j)
+                code_m = str(j.content) + '\n' + str(j.comment) +'\n'
+                code_m = clean_code(code_m)
+                codes_m.append(code_m)
+                code_f.extend(code_m)
+            codes_f.append(code_f)
+            # TODO
+        pickle.dump((fids, codes_f, mids, codes_m), open(current_version, 'wb'))
+    else:
+        fids, codes_f, mids, codes_m = pickle.load(open(current_version, 'rb'))
+
+    codes_f_idx, codes_m_idx = [], []
+    for file in codes_f:
+        file = np.array([process_cv2.getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in file])
+        file = process_cv2.alignData(file, config.maxFileLine)
+        codes_f_idx.append(file)
+    # codes_f_idx = np.array(codes_f_idx)
+    for file in codes_m:
+        file = np.array([process_cv2.getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in file])
+        file = process_cv2.alignData(file, config.maxFuncLine)
+        codes_m_idx.append(file)
+    # codes_m_idx = np.array(codes_m_idx)
+    # log(codes_f_idx.shape, len(codes_f_idx), len(fids))
+    # log(codes_m_idx.shape, len(codes_m_idx), len(mids))
+
+    codes_f = [' '.join(i).split() for i in codes_f]
+    codes_m = [' '.join(i).split() for i in codes_m]
+    # log(len(codes_f), len(fids), len(codes_m), len(mids))
+
+    # end = time.time()
+    # log("处理时间", end-start)
+
+    # start = time.time()
     # file score
-    score_TFIDF_f = bl_TFIDF.compute([query.split(' ')], codes_f)
-    score_Length_f = bl_Length.compute(codes_f)
-    score_f = mergeScore(score_TFIDF_f, score_Length_f)
-    result_f = rank(score_f, fids, 100)
+    if config.useTFIDF:
+        score_TFIDF_f = bl_TFIDF.compute(query, codes_f)
+        score_TFIDF_m = bl_TFIDF.compute(query, codes_m)
+    if config.useCodeLength:
+        score_Length_f = bl_Length.compute(codes_f)
+        score_Length_m = bl_Length.compute(codes_m)
+    if config.useLearning:
+        import bl_Learning_CNN
+        score_Learning_f = bl_Learning_CNN.compute(p.W, "file", config, query_idx, codes_f_idx)
+        score_Learning_m = bl_Learning_CNN.compute(p.W, "method", config, query_idx, codes_m_idx)
 
     # method score
-    score_TFIDF_m = bl_TFIDF.compute([query.split(' ')], codes_m)
-    score_Length_m = bl_Length.compute(codes_m)
-    score_m = mergeScore(score_TFIDF_m, score_Length_m)
-    result_m = rank(score_m, mids, 1000)
+
+    # end = time.time()
+    # log("定位时间", end-start)
+
+    # 排序
+    # start = time.time()
+    score_f = mergeScore(score_TFIDF_f, score_Learning_f, score_Length_f)
+    result_f = rank(score_f, fids, 1000)
+    score_m = mergeScore(score_TFIDF_m, score_Learning_m, score_Length_m)
+    result_m = rank(score_m, mids, 10000)
+    # end = time.time()
+    # log("排序时间", end-start)
+    # start = time.time()
 
     # optput
     output={}
-    code_path_len = len(f'cache/{product}/code/')
+    code_path_len = len(f'cache/{config.product}/code/')
     for score, fid in result_f:
         output[fid]={"score": score, "methods": []}
     for score, mid in result_m:
@@ -137,14 +188,15 @@ def predict_M(product, query):
     for k, v in output.items():
         v["name"] = p.files[k].filename[code_path_len:]
         output_json.append(v)
+    # end = time.time()
+    # log("结果输出时间", end-start)
     return output_json[:20]
 
 
-
-
 if __name__ == "__main__":
-    start = time.time()
-    output = predict_M('AspectJ', 'queryfile.txt')
-    print(output)
-    end = time.time()
-    print(end - start)
+    start_ti = time.time()
+    config = Config()
+    output = predict_M(config, 'queryfile.txt')
+    log(output)
+    end_ti = time.time()
+    log(end_ti - start_ti)
