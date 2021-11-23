@@ -2,8 +2,6 @@
 
 A VSCode plugin for bug localization without running code.
 
-<img src="E:\buglocate\overview.png" alt="image-20211123155637070" style="zoom:60%;" />
-
 ## Features
 
 TF-IDF based searching.
