@@ -23,21 +23,22 @@ def getNewestCommit(product):
     return filenames
 
 
-def checkFile(product, raw_project_path):
-    raw_path_len = len(raw_project_path.split('\\'))
-    file_list = getFileList(raw_project_path)
-    file_list = ['/'.join(i.split('/')[raw_path_len:]) for i in file_list]
-    repo_file_list = getNewestCommit(product)
-    for f in file_list:
-        if f not in repo_file_list:
-            log(f)
-    log(len(file_list), len(repo_file_list))
+# def checkFile(product, raw_project_path):
+#     raw_path_len = len(raw_project_path.split('\\'))
+#     file_list = getFileList(raw_project_path)
+#     file_list = ['/'.join(i.split('/')[raw_path_len:]) for i in file_list]
+#     repo_file_list = getNewestCommit(product)
+#     for f in file_list:
+#         if f not in repo_file_list:
+#             log(f)
+#     log(len(file_list), len(repo_file_list))
 
 
 def mergeScore(*scores):
     score = np.ones(len(scores[0]))
     for i in scores:
-        score *= i
+        if len(i) != 0:
+            score *= i
     return score
 
 
@@ -47,42 +48,42 @@ def rank(score, filenames, num, answer=None):
     if answer is not None:
         for index, i in enumerate(result):
             if i[1] in answer:
-                log(index, i)
+                log(f"{index}, {i}")
     return result[:num]
 
 
-def predict(product, query):
-    p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
-
-    cid = p.getLatestCommit()
-    # for bug in p.bugs.values():
-    #     if cid in bug.fixed_version:
-    #         query = bug.bug_summary+'\n'+bug.bug_description
-    #         break
-
-    query = clean_str(open(query).read())
-    fids = p.getFileIdsByCommitId(cid)
-    files = [p.getFileById(i) for i in fids]
-    codes = []
-    filenames = []
-    code_path_len = len(f'cache/{product}/code/')
-    for i in files:
-        filenames.append(i.filename[code_path_len:])
-        code = ""
-        code += i.filename + '\n'
-        for j in i.method_list:
-            j = p.getMethodById(j)
-            code += str(j.content)
-            code += str(j.comment)
-        code = clean_code(code)
-        codes.append(' '.join(code).split(' '))
-    
-    score_TFIDF = bl_TFIDF.compute([query.split(' ')], codes)
-    score_Length = bl_Length.compute(codes)
-    score = mergeScore(score_TFIDF, score_Length)
-    # answer= ["cache/AspectJ/code/weaver/src/org/aspectj/weaver/bcel/asm/StackMapAdder.java", "cache/AspectJ/code/org.aspectj.ajdt.core/src/org/aspectj/ajdt/internal/core/builder/AjState.java"]
-    result = rank(score, filenames)
-    return result
+# def predict(product, query):
+#     p: Project = pickle.load(open(f'cache/{product}/{product}.pkl', 'rb'))
+#
+#     cid = p.getLatestCommit()
+#     # for bug in p.bugs.values():
+#     #     if cid in bug.fixed_version:
+#     #         query = bug.bug_summary+'\n'+bug.bug_description
+#     #         break
+#
+#     query = clean_str(open(query).read())
+#     fids = p.getFileIdsByCommitId(cid)
+#     files = [p.getFileById(i) for i in fids]
+#     codes = []
+#     filenames = []
+#     code_path_len = len(f'cache/{product}/code/')
+#     for i in files:
+#         filenames.append(i.filename[code_path_len:])
+#         code = ""
+#         code += i.filename + '\n'
+#         for j in i.method_list:
+#             j = p.getMethodById(j)
+#             code += str(j.content)
+#             code += str(j.comment)
+#         code = clean_code(code)
+#         codes.append(' '.join(code).split(' '))
+#
+#     score_TFIDF = bl_TFIDF.compute([query.split(' ')], codes)
+#     score_Length = bl_Length.compute(codes)
+#     score = mergeScore(score_TFIDF, score_Length)
+#     # answer= ["cache/AspectJ/code/weaver/src/org/aspectj/weaver/bcel/asm/StackMapAdder.java", "cache/AspectJ/code/org.aspectj.ajdt.core/src/org/aspectj/ajdt/internal/core/builder/AjState.java"]
+#     result = rank(score, filenames)
+#     return result
 
 
 def predict_M(config: Config, query):
@@ -98,8 +99,9 @@ def predict_M(config: Config, query):
     #     if cid in bug.fixed_version:
     #         query = bug.bug_summary+'\n'+bug.bug_description
     #         break
-
+    # print(query)
     query = clean_str(open(query).read())
+    # print(query[:100])
     query_idx = process_cv2.getIdxfrom_sent_n(query, config.maxQueryLength, p.word_idx_map, filter_h=5)
     query = [query.split(' ')]
     current_version = f'{config.output_dir}/{config.product}/commit_{cid}.pkl'
@@ -119,8 +121,8 @@ def predict_M(config: Config, query):
                 codes_m.append(code_m)
                 code_f.extend(code_m)
             codes_f.append(code_f)
-            # TODO
-        pickle.dump((fids, codes_f, mids, codes_m), open(current_version, 'wb'))
+        # !!!
+        pickle.dump((list(fids), codes_f, list(mids), codes_m), open(current_version, 'wb'))
     else:
         fids, codes_f, mids, codes_m = pickle.load(open(current_version, 'rb'))
 
@@ -140,8 +142,9 @@ def predict_M(config: Config, query):
 
     codes_f = [' '.join(i).split() for i in codes_f]
     codes_m = [' '.join(i).split() for i in codes_m]
-    # log(len(codes_f), len(fids), len(codes_m), len(mids))
-
+    # print(len(codes_f), len(fids), len(codes_m), len(mids))
+    # print(p.getFileById(fids[0]).filename)
+    # print(codes_f[0])
     # end = time.time()
     # log("处理时间", end-start)
 
@@ -195,8 +198,9 @@ def predict_M(config: Config, query):
 
 if __name__ == "__main__":
     start_ti = time.time()
-    config = Config()
-    output = predict_M(config, 'queryfile.txt')
-    log(output)
+    config = Config('dist/config.json')
+    print(config.maxQueryLength)
+    output = predict_M(config, 'dist/queryfile.txt')
+    print(output)
     end_ti = time.time()
-    log(end_ti - start_ti)
+    print(end_ti - start_ti)

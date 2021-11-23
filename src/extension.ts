@@ -20,18 +20,18 @@ export function activate(context: vscode.ExtensionContext) {
 	// downloadExe();
 	context.subscriptions.push(vscode.commands.registerCommand('buglocate.init', () => {
 		vscode.window.showInformationMessage('[buglocate] Start prepare for buglocate...');
-		cmd.exec('.\\main.exe --doCollect', {cwd:config.workpath}, (error, stdout, stderr) => {
+		cmd.exec('.\\main\\main.exe --doCollect', {cwd:config.workpath}, (error, stdout, stderr) => {
 			console.log(stdout, stderr);
 			// console.log(stderr);
 			// vscode.window.showInformationMessage('[buglocate] Collect finished.');
-			cmd.exec('.\\main.exe --doMatch', {cwd:config.workpath}, (error, stdout, stderr) => {
+			cmd.exec('.\\main\\main.exe --doMatch', {cwd:config.workpath}, (error, stdout, stderr) => {
 				console.log(stdout, stderr);
 				// console.log(stderr);
 				// vscode.window.showInformationMessage('[buglocate] Match finished.');
-				cmd.exec('.\\main.exe --doMakeDataset', {cwd:config.workpath}, (error, stdout, stderr) => {
+				cmd.exec('.\\main\\main.exe --doMakeDataset', {cwd:config.workpath}, (error, stdout, stderr) => {
 					console.log(stdout, stderr);
 					if(config.useLearning){
-						cmd.exec('.\\main.exe --doTrain', {cwd:config.workpath}, (error, stdout, stderr) => {
+						cmd.exec('.\\main\\main.exe --doTrain', {cwd:config.workpath}, (error, stdout, stderr) => {
 							console.log(stdout, stderr);
 							vscode.window.showInformationMessage('[buglocate] All done.');
 						});
@@ -52,10 +52,14 @@ export function activate(context: vscode.ExtensionContext) {
 				console.log(error);
 			}
 		});
-		cmd.exec('.\\main.exe --doPredict --query "queryfile.txt"', {cwd:config.workpath}, (error, stdout, stderr) => {
+		// console.log("do predict");
+		cmd.exec('.\\main\\main.exe --doPredict --query "queryfile.txt"', {cwd:config.workpath}, (error, stdout, stderr) => {
 			if (stderr !== null){				
 				console.log(stderr);
 			}
+			// console.log(stdout);
+			// const resultList = JSON.parse(stdout);
+			// console.log(resultList);
 			vscode.window.setStatusBarMessage('');
 			vscode.window.createTreeView('bugLocateResult', {
 				treeDataProvider: new LocateResultProvider(stdout)
