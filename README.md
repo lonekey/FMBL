@@ -23,8 +23,8 @@ Formal edition of our bug localization tool FMBL.
 ## Install
 
 1. Install front-end plugin from VSCode extension marketplace.
-2. Download back-end program main.exe from here.
-3. Download GoogleNews-vectors-negative300.bin from here.
+2. Download back-end program main.exe from [here](https://www.aliyundrive.com/s/uMbRzp5RQah).
+3. Download GoogleNews-vectors-negative300.bin from [here](https://s3.amazonaws.com/dl4j-distribution/GoogleNews-vectors-negative300.bin.gz).
 
 ## Configuration
 

@@ -99,9 +99,9 @@ def predict_M(config: Config, query):
     #     if cid in bug.fixed_version:
     #         query = bug.bug_summary+'\n'+bug.bug_description
     #         break
-    # print(query)
+    # print(open(query).read())
+
     query = clean_str(open(query).read())
-    # print(query[:100])
     query_idx = process_cv2.getIdxfrom_sent_n(query, config.maxQueryLength, p.word_idx_map, filter_h=5)
     query = [query.split(' ')]
     current_version = f'{config.output_dir}/{config.product}/commit_{cid}.pkl'
@@ -132,10 +132,10 @@ def predict_M(config: Config, query):
         file = process_cv2.alignData(file, config.maxFileLine)
         codes_f_idx.append(file)
     # codes_f_idx = np.array(codes_f_idx)
-    for file in codes_m:
-        file = np.array([process_cv2.getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in file])
-        file = process_cv2.alignData(file, config.maxFuncLine)
-        codes_m_idx.append(file)
+    for method in codes_m:
+        method = np.array([process_cv2.getIdxfrom_sent(i, p.word_idx_map, config.maxCodeK) for i in method])
+        method = process_cv2.alignData(method, config.maxFuncLine)
+        codes_m_idx.append(method)
     # codes_m_idx = np.array(codes_m_idx)
     # log(codes_f_idx.shape, len(codes_f_idx), len(fids))
     # log(codes_m_idx.shape, len(codes_m_idx), len(mids))

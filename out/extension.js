@@ -21,7 +21,7 @@ function activate(context) {
     // console.log(vscode.workspace.getConfiguration('buglocate').get('project.name'));
     // downloadExe();
     context.subscriptions.push(vscode.commands.registerCommand('buglocate.init', () => {
-        vscode.window.showInformationMessage('[buglocate] Start prepare for buglocate...');
+        vscode.window.showInformationMessage('[FMBL] Start prepare for buglocate...');
         cmd.exec('.\\main\\main.exe --doCollect', { cwd: config.workpath }, (error, stdout, stderr) => {
             console.log(stdout, stderr);
             // console.log(stderr);
@@ -35,11 +35,11 @@ function activate(context) {
                     if (config.useLearning) {
                         cmd.exec('.\\main\\main.exe --doTrain', { cwd: config.workpath }, (error, stdout, stderr) => {
                             console.log(stdout, stderr);
-                            vscode.window.showInformationMessage('[buglocate] All done.');
+                            vscode.window.showInformationMessage('[FMBL] All done.');
                         });
                     }
                     else {
-                        vscode.window.showInformationMessage('[buglocate] All done.');
+                        vscode.window.showInformationMessage('[FMBL] All done.');
                     }
                 });
             });

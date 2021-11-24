@@ -1,6 +1,6 @@
 {	
 	"name": "buglocate",
-	"displayName": "buglocate",
+	"displayName": "FMBL",
 	"description": "A tool to find bugs!",
 	"version": "1.0.0",
 	"repository": {
