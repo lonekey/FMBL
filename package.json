@@ -4,7 +4,7 @@
 	"description": "A tool to find bugs!",
 	"version": "1.0.0",
 	"repository": {
-		"url": "https://gitee.com/lonekey/buglocate"
+		"url": "https://gitee.com/lonekey/FMBL"
 	},
 	"publisher": "YZU-zhucheng",
 	"engines": {
@@ -25,7 +25,7 @@
 				"buglocate.workpath":{
 					"type": "string",
 					"default": "E:\\buglocate\\src\\backend\\dist",
-					"description": "work path for buglocate"
+					"description": "work path for FMBL"
 				},
 				"buglocate.project.name": {
 					"type": "string",
